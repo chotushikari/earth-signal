@@ -1,151 +1,43 @@
 import crypto from 'node:crypto';
-
+const PRODUCTS = new Set(['GCOV','GUNW','GOFF','SME2','GSLC','RSLC','RIFG','RUNW','ROFF','L0B']);
+export function buildSearchParams(query = {}) {
+  const params = new URLSearchParams({dataset:'NISAR', output:'json'});
+  const limit = Number(query.maxResults ?? 80);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 250) throw new Error('maxResults must be an integer from 1 to 250.');
+  params.set('maxResults', String(limit));
+  if (query.processingLevel) {
+    const product = String(query.processingLevel).toUpperCase();
+    if (!PRODUCTS.has(product)) throw new Error('Unsupported NISAR science product.');
+    params.set('processingLevel', product);
+  }
+  for (const name of ['start','end']) if (query[name]) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(query[name]) || Number.isNaN(Date.parse(query[name])) || new Date(query[name]).toISOString().slice(0,10) !== query[name]) throw new Error(`${name} must be a valid YYYY-MM-DD date.`);
+    params.set(name, query[name]);
+  }
+  if (query.start && query.end && query.start > query.end) throw new Error('Start date must precede end date.');
+  if (query.lat != null || query.lon != null) {
+    if (query.lat == null || query.lon == null || String(query.lat).trim()==='' || String(query.lon).trim()==='') throw new Error('Latitude and longitude are both required.');
+    const lat = Number(query.lat), lon = Number(query.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat)>90 || Math.abs(lon)>180) throw new Error('Coordinates are outside valid geographic bounds.');
+    params.set('intersectsWith', `POINT(${lon} ${lat})`);
+  } else if (query.intersectsWith) {
+    const wkt = String(query.intersectsWith);
+    if (wkt.length > 6000 || !/^(POINT|POLYGON|MULTIPOLYGON)\s*\([\d\s.,()+-]+\)$/i.test(wkt)) throw new Error('Invalid or oversized WKT geometry.');
+    params.set('intersectsWith', wkt);
+  }
+  return params;
+}
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  const token = (
-    process.env.EARTHDATA_TOKEN ||
-    process.env.VITE_EARTHDATA_TOKEN ||
-    ''
-  ).trim();
-
-  const supabaseUrl = (process.env.VITE_SUPABASE_URL || '').trim();
-  const supabaseKey = (
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.VITE_SUPABASE_ANON_KEY ||
-    ''
-  ).trim();
-
+  res.setHeader('X-Request-ID', crypto.randomUUID());
+  if (req.method !== 'GET') { res.setHeader('Allow','GET'); return res.status(405).json({error:'Method not allowed',code:'METHOD_NOT_ALLOWED'}); }
+  let params;
+  try { params = buildSearchParams(req.query); } catch (error) { return res.status(400).json({error:error.message,code:'INVALID_SEARCH'}); }
   try {
-    const query = req.query || {};
-    const params = new URLSearchParams();
-    params.set('platform', query.platform || 'NISAR');
-    if (query.processingLevel) {
-      params.set('processingLevel', query.processingLevel);
-    }
-    if (query.intersectsWith) {
-      params.set('intersectsWith', query.intersectsWith);
-    }
-    if (query.start) params.set('start', query.start);
-    if (query.end) params.set('end', query.end);
-    params.set(
-      'maxResults',
-      String(Math.min(Number(query.maxResults) || 80, 250))
-    );
-    params.set('output', 'json');
-
-    const cacheKey = crypto
-      .createHash('sha1')
-      .update(params.toString())
-      .digest('hex')
-      .slice(0, 12);
-    const cacheObject = `asf-query-${cacheKey}.json`;
-
-    const upstreamUrl = `https://api.daac.asf.alaska.edu/services/search/param?${params.toString()}`;
-    const reqHeaders = {
-      Accept: 'application/json',
-      'User-Agent': 'TeamZenith-NISAR-Explorer/1.0',
-    };
-    if (token) {
-      reqHeaders.Authorization = `Bearer ${token}`;
-    }
-    const response = await fetch(upstreamUrl, {
-      headers: reqHeaders,
-    });
-
-    if (!response.ok) {
-      if (supabaseUrl && supabaseKey) {
-        const supaFallback = await fetch(
-          `${supabaseUrl}/storage/v1/object/public/nisar-mission-store/${cacheObject}`
-        );
-        if (supaFallback.ok) {
-          const fallbackText = await supaFallback.text();
-          res.setHeader('Content-Type', 'application/json; charset=utf-8');
-          res.setHeader('X-Zenith-Cache', 'SUPABASE-FALLBACK');
-          return res.status(200).send(fallbackText);
-        }
-      }
-      return res.status(response.status).json({
-        error: `ASF Search API returned HTTP ${response.status}`,
-      });
-    }
-
-    const payload = await response.text();
-
-    // Persist the ASF query result into Supabase Storage AND public.nisar_granules PostGIS table
-    if (supabaseUrl && supabaseKey) {
-      fetch(
-        `${supabaseUrl}/storage/v1/object/nisar-mission-store/${cacheObject}`,
-        {
-          method: 'POST',
-          headers: {
-            apikey: supabaseKey,
-            Authorization: `Bearer ${supabaseKey}`,
-            'Content-Type': 'application/json',
-            'x-upsert': 'true',
-          },
-          body: payload,
-        }
-      ).catch(() => {});
-
-      try {
-        const parsedJson = JSON.parse(payload);
-        const records = Array.isArray(parsedJson?.[0])
-          ? parsedJson[0]
-          : Array.isArray(parsedJson)
-            ? parsedJson
-            : [];
-        if (records.length > 0) {
-          const pgRows = records
-            .filter((r) => r && r.granuleName)
-            .map((r) => ({
-              granule_id: r.granuleName,
-              product_type: r.processingLevel || 'SAR',
-              processing_type: r.processingType || null,
-              start_time: r.startTime || null,
-              stop_time: r.stopTime || null,
-              flight_direction: r.flightDirection || null,
-              path_number: Number(r.pathNumber) || null,
-              frame_number: Number(r.frameNumber) || null,
-              footprint: r.stringFootprint
-                ? `SRID=4326;${r.stringFootprint}`
-                : null,
-              browse_urls: r.browse || [],
-              additional_urls: (r.nisar && r.nisar.additionalUrls) || [],
-              raw_metadata: r,
-            }));
-          fetch(`${supabaseUrl}/rest/v1/nisar_granules`, {
-            method: 'POST',
-            headers: {
-              apikey: supabaseKey,
-              Authorization: `Bearer ${supabaseKey}`,
-              'Content-Type': 'application/json',
-              Prefer: 'resolution=merge-duplicates',
-            },
-            body: JSON.stringify(pgRows),
-          }).catch(() => {});
-        }
-      } catch {
-        // Ignore parse error on background sync
-      }
-    }
-
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('X-Zenith-Cache', 'ASF-LIVE-SYNCED-TO-SUPABASE-POSTGIS');
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
-    return res.status(200).send(payload);
-  } catch (error) {
-    return res.status(500).json({
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Unexpected error querying NASA ASF Search API',
-    });
-  }
+    const upstream = await fetch(`https://api.daac.asf.alaska.edu/services/search/param?${params}`, {headers:{Accept:'application/json','User-Agent':'EarthSignal/2.0'},signal:AbortSignal.timeout(20000)});
+    if (!upstream.ok) return res.status(502).json({error:`ASF search is unavailable (HTTP ${upstream.status}).`,code:'ASF_UNAVAILABLE'});
+    const payload = await upstream.json();
+    if (!Array.isArray(payload)) return res.status(502).json({error:'Unexpected ASF response.',code:'INVALID_UPSTREAM'});
+    res.setHeader('Cache-Control','s-maxage=300, stale-while-revalidate=600');
+    return res.status(200).json({source:'ASF Search',fetchedAt:new Date().toISOString(),query:Object.fromEntries(params),limit:Number(params.get('maxResults')),records:payload.length===1 && Array.isArray(payload[0]) ? payload[0] : payload});
+  } catch { return res.status(502).json({error:'ASF search timed out or could not be reached. Please retry.',code:'ASF_UNAVAILABLE'}); }
 }

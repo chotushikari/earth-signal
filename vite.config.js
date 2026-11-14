@@ -4,6 +4,7 @@ import cesium from 'vite-plugin-cesium';
 import asfSearchHandler from './api/asf-search.js';
 import earthdataAssetHandler from './api/earthdata-asset.js';
 import watchpointsHandler from './api/watchpoints.js';
+import healthHandler from './api/health.js';
 
 function wrapVercelHandler(handler) {
   return async (req, res) => {
@@ -60,6 +61,7 @@ function earthdataAndSupabaseDevProxy(env) {
     name: 'earthdata-and-supabase-dev-proxy',
     configureServer(server) {
       Object.assign(process.env, env);
+      server.middlewares.use('/api/health', wrapVercelHandler(healthHandler));
       server.middlewares.use(
         '/api/asf-search',
         wrapVercelHandler(asfSearchHandler)
