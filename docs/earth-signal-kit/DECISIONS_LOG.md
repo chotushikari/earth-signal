@@ -37,3 +37,16 @@ Codex: append decisions here; do not silently overwrite earlier decisions. New d
 - User approval: Approved in chat on 2026-11-14.
 - Files/config changed: docs/earth-signal-kit/DECISIONS_LOG.md
 - Rollback: Revise this decision before implementation of the affected step; no code, data, or provider configuration requires rollback.
+
+### D-007 — Discovery-first Earth Signal interface
+- Date: 2026-11-14
+- Decision owner: Project owner
+- Context/problem: The inherited mission-console UI presented legacy branding and could imply live scientific capability before the evidence workflow exists.
+- Options: Preserve the legacy interface; lightly rebrand it; or introduce a new discovery-first interface while retaining legacy code only as quarantined source.
+- Official docs/pricing/licence: No provider or paid service selected.
+- Data/privacy impact: The new interface makes no external data request and collects no persisted user data.
+- Cost/quota impact: No cost impact.
+- Decision: Use a calm editorial field-workspace style. Lead with location/AOI discovery, truthful lens states, data readiness, evidence, and limitations. Remove the legacy dashboard route from the production frontend path until its data and science logic are replaced. Keep every current result state explicitly non-live.
+- User approval: Approved in chat on 2026-11-14.
+- Files/config changed: src/App.jsx, src/index.css, src/main.jsx, .gitignore, and UI QA artifacts.
+- Rollback: Restore the earlier route in src/main.jsx from Git history; no provider or data migration is involved.
