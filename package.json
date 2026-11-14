@@ -12,6 +12,7 @@
     "test:discovery": "node tests/discovery-summary.test.mjs && node tests/coordinates.test.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "cesium": "^1.127.0",
     "framer-motion": "^11.11.17",
     "lucide-react": "^0.460.0",

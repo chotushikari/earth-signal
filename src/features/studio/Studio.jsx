@@ -3,6 +3,7 @@ import { ArrowRight, Bookmark, Check, Download, FileText, Layers3, MapPin, Searc
 import farmland from '../../assets/images/nasa-earth-observatory-agriculture.jpg';
 import mission from '../../assets/images/nisar-orbit-concept.jpg';
 import './studio.css';
+import CloudAccount from '../account/CloudAccount';
 
 export const places = [
   { id:'vembanad', name:'Vembanad–Kol Wetlands', region:'Kerala, India', lat:9.6, lon:76.4, topic:'Water & Wetlands', image:farmland },
@@ -23,6 +24,7 @@ export function Collection({ navigate, compact = false }) {
   const [followed, setFollowed] = useLocal('earth-signal-topics', []);
   const [tab, setTab] = useState('Overview');
   const toggle = (id) => setSaved(saved.includes(id) ? saved.filter(x => x !== id) : [...saved,id]);
+  if (!compact) return <div className="studio-page"><CloudAccount /><Collection compact navigate={navigate}/></div>;
   return <div className={compact ? 'earth-collection' : 'studio-page earth-collection'}><header><h1>My Earth</h1><p>Your saved places, topics and ongoing monitoring.</p></header><div className="studio-tabs">{['Overview','Monitoring','Activity'].map(x => <button key={x} className={tab === x ? 'selected' : ''} onClick={() => setTab(x)}>{x}</button>)}</div>{tab === 'Overview' ? <><section><h2><MapPin size={19} /> Saved Locations <span>({saved.length})</span></h2>{saved.length ? places.filter(p => saved.includes(p.id)).map(p => <PlaceRow key={p.id} place={p} navigate={navigate} saved toggle={toggle} />) : <p className="studio-empty">Save a place below to build your collection.</p>}</section><section><h2><Layers3 size={19} /> Followed Topics</h2><div className="topic-chips">{topics.map(t => <button key={t} className={followed.includes(t) ? 'selected' : ''} aria-pressed={followed.includes(t)} onClick={() => setFollowed(followed.includes(t) ? followed.filter(x=>x!==t) : [...followed,t])}>{t}</button>)}</div></section><section><h2><Bookmark size={19} /> Saved Investigations</h2><button className="studio-list-link" onClick={() => navigate('/investigate/demo')}>Wetland extent change <span>Demonstration <ArrowRight size={16}/></span></button></section><section><h2>Explore places</h2>{places.map(p => <PlaceRow key={p.id} place={p} navigate={navigate} saved={saved.includes(p.id)} toggle={toggle} />)}</section></> : <section><h2>{tab === 'Monitoring' ? 'Observation monitoring' : 'Your activity'}</h2><p className="studio-empty">{tab === 'Monitoring' ? 'Your saved locations are ready for observation monitoring once the data APIs are connected.' : 'Saved places and followed topics stay in this browser. Observation activity will appear when data is connected.'}</p><button className="studio-primary" onClick={() => navigate('/explore')}>Explore map <ArrowRight size={16}/></button></section>}</div>;
 }
 export function InvestigationStudio({ navigate }) {
