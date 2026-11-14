@@ -8,6 +8,7 @@ import { getBundledDiscoverySummary } from '../../services/discovery/summary';
 import './home.css';
 import './home-media.css';
 import './home-reference-overrides.css';
+import { DiscoverySections } from '../studio/Studio';
 
 const visibleTopics = [...topics.filter((topic) => topic.id !== 'explore'), topics.find((topic) => topic.id === 'explore')];
 const topicMedia = { water: nisarOrbitConcept, 'ground-movement': nisarOrbitConcept, forests: earthObservatoryAgriculture, farms: earthObservatoryAgriculture, ice: nisarOrbitConcept, explore: nisarOrbitConcept };
@@ -24,6 +25,7 @@ export default function HomePage({ navigate }) {
     </section>
     <section className="discover-cards" aria-label="Discovery topics">{visibleTopics.map((topic) => <button type="button" key={topic.id} onClick={() => navigate(topic.id === 'explore' ? '/explore' : `/topics/${topic.id}`)}><div className={`topic-media topic-${topic.id}`}><img src={topicMedia[topic.id]} alt="" /><span>{topic.product}</span></div><div><h2>{topic.title}</h2><p>{topic.description}</p><ArrowRight size={18} /></div></button>)}</section>
     <p className="imagery-note">Topic imagery is contextual NASA/JPL and NASA Earth Observatory material, not a displayed NISAR measurement.</p>
-    <section className="discover-evidence"><div><h2>Start with the data that exists.</h2><p>The current discovery reference is a bundled ASF catalog snapshot: {summary.observationCount} records from {summary.dateRange ? '18 Jun to 04 Oct 2026' : 'an unavailable period'}. It is not a live coverage guarantee.</p></div><button type="button" onClick={() => navigate('/explore')}>Open Explore Map <ArrowRight size={17} /></button></section>
+    <DiscoverySections navigate={navigate} />
+    <section className="discover-evidence"><div><h2>Explore the observation catalog</h2><p>{summary.observationCount} catalog records in the bundled ASF reference snapshot. Open the map to inspect footprints and acquisition metadata.</p></div><button type="button" onClick={() => navigate('/explore')}>Open Explore Map <ArrowRight size={17} /></button></section>
   </div>;
 }
