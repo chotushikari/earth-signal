@@ -1,9 +1,11 @@
 import { ArrowUpRight } from 'lucide-react';
 import { getBundledDiscoverySummary } from '../../services/discovery/summary';
+import nisarOrbitConcept from '../../assets/images/nisar-orbit-concept.jpg';
 import CoordinateForm from './CoordinateForm';
 import SourceStatus from './SourceStatus';
 import TopicReadinessList from './TopicReadinessList';
 import './home.css';
+import './home-media.css';
 import './home-interactions.css';
 
 export default function HomePage({ navigate }) {
@@ -12,8 +14,8 @@ export default function HomePage({ navigate }) {
 
   return <div className="discovery-home">
     <section className="discovery-lead">
-      <div className="discovery-lead-copy"><h1>Locate the evidence before you interpret change.</h1><p>Start with a location, then inspect what the record can support.</p></div>
-      <div className="discovery-context"><strong>Discovery workspace</strong><span>Coordinate-led review for NISAR catalog records and future investigation setup.</span></div>
+      <div className="discovery-lead-copy"><h1>Discover what’s changing on Earth.</h1><p>Start with a location, then inspect what the record can support.</p></div>
+      <figure className="discovery-context"><img src={nisarOrbitConcept} alt="Artist's concept of the NISAR satellite above Earth" /><figcaption><strong>Discovery workspace</strong><span>Coordinate-led review for NISAR catalog records and future investigation setup.</span><a href="https://www.jpl.nasa.gov/press-kits/nisar/gallery/" target="_blank" rel="noreferrer">NASA/JPL image credit</a></figcaption></figure>
     </section>
     <section className="discovery-workbench" aria-labelledby="workbench-title">
       <div className="workbench-copy"><h2 id="workbench-title">Assess a location</h2><p>Enter decimal-degree coordinates to carry a precise location into the map workspace. Availability is assessed there against the source, time window, and product requirements.</p><CoordinateForm onSubmit={openExplore} /></div>
