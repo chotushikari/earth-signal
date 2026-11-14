@@ -50,3 +50,16 @@ Codex: append decisions here; do not silently overwrite earlier decisions. New d
 - User approval: Approved in chat on 2026-11-14.
 - Files/config changed: src/App.jsx, src/index.css, src/main.jsx, .gitignore, and UI QA artifacts.
 - Rollback: Restore the earlier route in src/main.jsx from Git history; no provider or data migration is involved.
+
+### D-008 — Modular evidence-first frontend shell
+- Date: 2026-11-14
+- Decision owner: Project owner
+- Context/problem: Earth Signal needs a complete, coherent frontend before real catalogue, map, processing, persistence, and report services are approved and connected.
+- Options: Keep a single dashboard; expose placeholder outputs as live; or build a modular product shell with explicit availability states.
+- Official docs/pricing/licence: No provider or paid service selected.
+- Data/privacy impact: The frontend makes no new external requests and does not persist user data.
+- Cost/quota impact: No cost impact.
+- Decision: Ship the discovery, topic, map, investigation, saved-workspace, report, and methodology surfaces as reusable frontend modules. Every unavailable workflow must use an honest empty, limited, or not-implemented state; reports and exports remain disabled until reproducible result data exists.
+- User approval: Approved in chat on 2026-11-14.
+- Files/config changed: src/App.jsx, src/index.css, src/components/, src/data/, src/features/, docs/FRONTEND_IMPLEMENTATION.md, and this log.
+- Rollback: Revert the frontend commit; no external data or provider state is changed.
