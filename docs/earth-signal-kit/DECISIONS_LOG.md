@@ -63,3 +63,16 @@ Codex: append decisions here; do not silently overwrite earlier decisions. New d
 - User approval: Approved in chat on 2026-11-14.
 - Files/config changed: src/App.jsx, src/index.css, src/components/, src/data/, src/features/, docs/FRONTEND_IMPLEMENTATION.md, and this log.
 - Rollback: Revert the frontend commit; no external data or provider state is changed.
+
+### D-009 — Earth Signal V2 incremental migration boundary
+- Date: 2026-11-15
+- Decision owner: Project owner
+- Context/problem: The V2 product brief asks to retain useful Zenith infrastructure without presenting legacy demo behavior as validated science.
+- Options: Replace the app wholesale; preserve the old explorer as production behavior; or migrate the product shell incrementally while quarantining unsafe paths.
+- Official docs/pricing/licence: No new provider, plan or licence is selected.
+- Data/privacy impact: No external request, credential, database migration or user persistence is enabled by this decision.
+- Cost/quota impact: No cost impact.
+- Decision: Use branch `earth-signal-v2`. Keep legacy components in source while V2 routes are built. Quarantine browse-image/procedural change outputs and public watchpoint writes from production workflows. Promote an integration or science workflow only after its documented validation gate.
+- User approval: User approved starting Earth Signal V2 in chat on 2026-11-15.
+- Files/config changed: docs/EXISTING_SYSTEM_AUDIT.md, V2 planning documents, route shell files and this log.
+- Rollback: Return to `main` or revert the V2 commits; no external state is altered.

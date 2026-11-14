@@ -4,6 +4,7 @@ import HomePage from './features/discovery/HomePage';
 import TopicPage from './features/topics/TopicPage';
 import ExplorePage from './features/explore/ExplorePage';
 import InvestigationPage from './features/investigate/InvestigationPage';
+import InvestigationsPage from './features/investigate/InvestigationsPage';
 import MyEarthPage from './features/account/MyEarthPage';
 import ReportPage from './features/reports/ReportPage';
 import MethodologyPage from './features/methodology/MethodologyPage';
@@ -19,9 +20,10 @@ function RouteView({ path, navigate }) {
   if (path === '/' || path === '/discover') return <HomePage navigate={navigate} />;
   if (path.startsWith('/topics/')) return <TopicPage topicId={path.split('/')[2]} navigate={navigate} />;
   if (path === '/explore') return <ExplorePage navigate={navigate} />;
+  if (path === '/investigations') return <InvestigationsPage navigate={navigate} />;
   if (path.startsWith('/investigate/')) return <InvestigationPage navigate={navigate} />;
   if (path === '/my-earth') return <MyEarthPage navigate={navigate} />;
-  if (path.startsWith('/reports/')) return <ReportPage navigate={navigate} />;
+  if (path === '/reports' || path.startsWith('/reports/')) return <ReportPage navigate={navigate} />;
   if (path === '/methodology') return <MethodologyPage />;
   return <HomePage navigate={navigate} />;
 }
