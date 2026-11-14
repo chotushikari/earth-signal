@@ -159,6 +159,7 @@ export default function GlobeViewer({
   onSwapCompare,
   onStartAutoCompare,
   activePartner = null,
+  catalogOnly = false,
 }) {
   const hostRef = useRef(null);
   const viewerRef = useRef(null);
@@ -406,6 +407,7 @@ export default function GlobeViewer({
         // Optional label overlay
       }
 
+      if (!catalogOnly) {
       // Add reference marker for the primary South Asia target basin
       const targetMarker = viewer.entities.add({
         position: Cesium.Cartesian3.fromDegrees(90.41, 23.81, 0),
@@ -484,6 +486,7 @@ export default function GlobeViewer({
         });
         referenceEntitiesRef.current.push(ptEntity);
       });
+      }
 
       const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
       handler.setInputAction((event) => {
@@ -1321,7 +1324,7 @@ export default function GlobeViewer({
         className="x-globe-host"
         ref={hostRef}
         role="img"
-        aria-label={`Interactive 3D Earth globe showing ${features.length} catalog acquisition footprints. A complete keyboard-accessible observation list follows the globe; select a record there to update the highlighted footprint and details.`}
+        aria-label={`Interactive 3D Earth globe showing ${features.length} catalog acquisition footprints. Select a footprint with a pointer to inspect its source record in the details panel.`}
       />
 
       {/* Interactive Split-Swipe Curtain Divider Handle */}
@@ -1354,7 +1357,7 @@ export default function GlobeViewer({
             />
           )}
         </div>
-        <div className="x-globe-controls" role="toolbar" aria-label="3D Globe Camera Views">
+        {!catalogOnly && <div className="x-globe-controls" role="toolbar" aria-label="3D Globe Camera Views">
           <button
             type="button"
             className="x-globe-btn"
@@ -1401,7 +1404,7 @@ export default function GlobeViewer({
             <Layers size={11} aria-hidden="true" />
             <span>L0B Strips</span>
           </button>
-        </div>
+        </div>}
       </div>
       {status.state !== 'ready' && status.state !== 'loading' && (
         <div className="x-globe-error" role="alert">
