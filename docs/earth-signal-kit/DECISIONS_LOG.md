@@ -24,3 +24,16 @@ Codex: append decisions here; do not silently overwrite earlier decisions. New d
 - User approval:
 - Files/config changed:
 - Rollback:
+
+### D-006 — Product assumptions locked for the first Earth Signal milestone
+- Date: 2026-11-14
+- Decision owner: Project owner
+- Context/problem: The implementation needs a bounded, evidence-first MVP before any scientific or infrastructure work begins.
+- Options: Broad multi-topic implementation; or a staged MVP centred on verified science workflows.
+- Official docs/pricing/licence: No provider or plan selected in this decision.
+- Data/privacy impact: No credentials, user data, external API requests, or storage integrations are enabled.
+- Cost/quota impact: No cost-bearing service is approved.
+- Decision: Keep the name Earth Signal. Serve researchers, educators, and local analysts first. Start with SME2 soil-moisture and GCOV calibrated radar-response workflows. Keep GUNW and GOFF Limited until real-data validation passes. Use Ready only after passing scientific and UX acceptance checks. Defer curated regions until live NASA coverage is verified. Use the defined discovery, AOI, readiness, evidence, and local-first saved-place MVP scope.
+- User approval: Approved in chat on 2026-11-14.
+- Files/config changed: docs/earth-signal-kit/DECISIONS_LOG.md
+- Rollback: Revise this decision before implementation of the affected step; no code, data, or provider configuration requires rollback.
