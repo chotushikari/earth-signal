@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+const base = process.argv[2] || 'http://127.0.0.1:5173';
+const health=await fetch(`${base}/api/health`).then(r=>r.json());
+assert.equal(health.service,'Earth Signal');
+const response=await fetch(`${base}/api/asf-search?maxResults=2&processingLevel=GCOV`);
+const data=await response.json();assert.equal(response.status,200,JSON.stringify(data));
+assert.equal(data.source,'ASF Search');assert(Array.isArray(data.records));
+const invalid=await fetch(`${base}/api/asf-search?lat=100&lon=0`);assert.equal(invalid.status,400);
+const mutation=await fetch(`${base}/api/watchpoints`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});assert.equal(mutation.status,501);
+console.log(JSON.stringify({base,health:'passed',liveSearch:'passed',records:data.records.length,validation:'passed',publicWriteBlocked:'passed'}));

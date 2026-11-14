@@ -28,7 +28,7 @@ export default function ExplorePage({ navigate }) {
   const [revision, setRevision] = useState(0);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
-  const [product, setProduct] = useState('');
+  const [product, setProduct] = useState('GCOV');
   useEffect(() => {
     if (mode !== 'live') return;
     const controller = new AbortController();
@@ -54,6 +54,7 @@ export default function ExplorePage({ navigate }) {
   }, [mode, revision]);
   const snapshotSummary = getBundledDiscoverySummary();
   const catalog = useMemo(() => normalizeCatalog(mode === 'snapshot' ? rawCatalog : liveRecords), [mode,liveRecords]);
+  const geometryNote = mode === 'live' && requestState === 'success' ? `${liveRecords.length} records returned; ${catalog.errors.length} without usable footprints.` : '';
   const dates = catalog.features.map(x=>x.properties.acquisitionDate).filter(Boolean).sort();
   const summary = mode === 'snapshot' ? snapshotSummary : {observationCount:catalog.features.length,sourceLabel:'ASF Search · live request',dateRange:dates.length?{start:dates[0],end:dates.at(-1)}:null,productFamilies:[...new Set(catalog.features.map(x=>x.properties.productType).filter(Boolean))]};
   const visibleFeatures = showFootprints ? catalog.features : [];
@@ -80,6 +81,7 @@ export default function ExplorePage({ navigate }) {
       {showTimeline && <section className="acquisition-timeline"><div><span><CalendarDays size={15} /> Returned acquisition range</span><small>{summary.observationCount} {mode==='live'?'live':'snapshot'} records</small></div><div className="timeline-rule">{summary.dateRange && <><i /><time>{formatDate(summary.dateRange.start)}</time><time>{formatDate(summary.dateRange.end)}</time></>}</div></section>}
     </main>
     <aside className="readiness-rail">
+      {geometryNote && <p role="status">{geometryNote}</p>}
       <header><Layers3 size={24} /><div><h2>Data readiness</h2><p>{coordinates ? `Location: ${coordinates}` : 'Select a location to evaluate coverage.'}</p></div><CircleHelp size={19} /></header>
       <div className="readiness-notice"><strong>{mode==='live'?'Live discovery':'Reference snapshot'} · science assessment pending</strong><p>{mode==='live'?`${catalog.features.length} valid footprints from ASF. `:''}Metadata discovery does not verify calibration, compatible observation pairs or valid science pixels.</p></div>
       <div className="readiness-tabs"><button type="button" aria-pressed={readinessFilter === 'all'} className={readinessFilter === 'all' ? 'is-active' : ''} onClick={() => setReadinessFilter('all')}>All</button><button type="button" aria-pressed={readinessFilter === 'snapshot'} className={readinessFilter === 'snapshot' ? 'is-active' : ''} onClick={() => setReadinessFilter('snapshot')}>Snapshot</button><button type="button" aria-pressed={readinessFilter === 'location'} className={readinessFilter === 'location' ? 'is-active' : ''} onClick={() => setReadinessFilter('location')}>Needs location</button></div>
