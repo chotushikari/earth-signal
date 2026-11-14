@@ -1,5 +1,5 @@
 import { ArrowRight, MapPin, Search } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import nisarOrbitConcept from '../../assets/images/nisar-orbit-concept.jpg';
 import earthObservatoryAgriculture from '../../assets/images/nasa-earth-observatory-agriculture.jpg';
 import { topics } from '../../data/topics';
@@ -16,6 +16,27 @@ const topicMedia = { water: nisarOrbitConcept, 'ground-movement': nisarOrbitConc
 export default function HomePage({ navigate }) {
   const [location, setLocation] = useState('');
   const [error, setError] = useState('');
+  useEffect(() => {
+    const input = document.getElementById('discover-location');
+    const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const hints = ['Try Sundarbans: 21.95, 88.77', 'Try Kerala: 9.60, 76.40', 'Try Antarctica: -75.10, -100.10', 'Enter latitude, longitude'];
+    let index = 0;
+    const rotate = () => {
+      if (!input || input.value || document.activeElement === input || preference.matches || document.hidden) return;
+      input.placeholder = hints[index];
+      index = (index + 1) % hints.length;
+      input.classList.remove('hint-changing');
+      void input.offsetWidth;
+      input.classList.add('hint-changing');
+    };
+    const timer = window.setInterval(rotate, 3800);
+    const sections = document.querySelectorAll('.discover-home .reference-section, .discover-home .discover-evidence');
+    const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+      if (entry.isIntersecting) { entry.target.classList.add('discover-arrived'); observer.unobserve(entry.target); }
+    }), { threshold: 0.12 });
+    sections.forEach(section => observer.observe(section));
+    return () => { window.clearInterval(timer); observer.disconnect(); };
+  }, []);
   const summary = getBundledDiscoverySummary();
   const explore = (event) => { event.preventDefault(); const [latitude, longitude] = location.split(','); const parsed = parseCoordinatePair(latitude, longitude); if (!parsed.valid) { setError(parsed.error); return; } navigate(`/explore?lat=${parsed.latitude}&lon=${parsed.longitude}`); };
   return <div className="discover-home">
