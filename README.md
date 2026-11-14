@@ -12,6 +12,7 @@ The initial validated processors will be SME2 soil moisture and GCOV calibrated 
 
 ```bash
 npm ci
+npm run check:secrets
 npm run dev
 ```
 
@@ -20,6 +21,8 @@ Create `.env.local` from `.env.example` only when a later approved integration r
 ## Documentation
 
 The product brief, architecture, scientific rules, risk register, and phased execution plan are in [`docs/earth-signal-kit`](docs/earth-signal-kit/README.md). Work proceeds one reviewed step at a time.
+
+Local runtime and environment guidance is in [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md).
 
 ## Provenance
 
