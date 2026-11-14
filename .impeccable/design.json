@@ -1,9 +1,11 @@
 {
   "schema": 1,
   "mode": "operate",
-  "world": "field-instrument-ledger",
-  "signatureInteraction": "topic evidence trace",
+  "world": "scientific-intake-desk",
+  "signatureInteraction": "immediate decimal-coordinate validation",
   "surface": "/",
   "entry": "coordinates-only",
-  "surfaces": "opaque"
+  "surfaces": "opaque",
+  "sourceState": "bundled-snapshot-provenance",
+  "readinessState": "needs-location"
 }

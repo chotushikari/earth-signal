@@ -3,8 +3,10 @@ import { Crosshair, Layers, LocateFixed, Map, Maximize2, Minus, Plus, ScanSearch
 import { Button, DemoNotice, EmptyState, PageHeading, StatusBadge } from '../../components/ui';
 
 export default function ExplorePage({ navigate }) {
-  const [coordinates, setCoordinates] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const query = new URLSearchParams(window.location.search);
+  const initialCoordinates = query.has('lat') && query.has('lon') ? `${query.get('lat')}, ${query.get('lon')}` : '';
+  const [coordinates, setCoordinates] = useState(initialCoordinates);
+  const [submitted, setSubmitted] = useState(Boolean(initialCoordinates));
   const submit = (event) => { event.preventDefault(); setSubmitted(true); };
   return <div className="explore-page"><PageHeading eyebrow="Explore map" title="Find the evidence path for a place." copy="Define an area first. The readiness engine will later connect validated NISAR catalog results to this workspace." />
     <div className="explore-layout"><aside className="map-sidebar"><form onSubmit={submit}><label htmlFor="coordinates">Coordinates or place</label><input id="coordinates" value={coordinates} onChange={(event) => setCoordinates(event.target.value)} placeholder="Example: 22.15, 89.65" /><Button icon={ScanSearch}>Assess availability</Button></form><div className="side-rule" /><section><span className="eyebrow">Area of interest</span><h2>No area selected</h2><p>Coordinate input, curated-region selection, and map drawing will converge here.</p><button className="text-action" onClick={() => setSubmitted(true)}><Crosshair size={15} /> Use map selection</button></section><section><span className="eyebrow">Layers</span><ul className="layer-list"><li><span><i className="layer-dot base" />Base map</span><em>Available</em></li><li><span><i className="layer-dot footprint" />NISAR footprints</span><em>Not loaded</em></li><li><span><i className="layer-dot result" />Measurement result</span><em>Unavailable</em></li></ul></section></aside>

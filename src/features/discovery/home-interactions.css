@@ -1,0 +1,3 @@
+/* Hallmark: interaction states retained separately for targeted component review */
+.coordinate-submit:active{color:var(--es-home-ground);background:var(--es-home-focus);border-color:var(--es-home-focus)}
+.coordinate-submit:disabled{color:var(--es-home-ink);background:var(--es-home-panel);border-color:var(--es-home-line);cursor:not-allowed}
