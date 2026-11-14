@@ -1,28 +1,29 @@
-import { ArrowUpRight } from 'lucide-react';
-import { getBundledDiscoverySummary } from '../../services/discovery/summary';
+import { ArrowRight, MapPin, Search } from 'lucide-react';
+import { useState } from 'react';
 import nisarOrbitConcept from '../../assets/images/nisar-orbit-concept.jpg';
-import CoordinateForm from './CoordinateForm';
-import SourceStatus from './SourceStatus';
-import TopicReadinessList from './TopicReadinessList';
+import earthObservatoryAgriculture from '../../assets/images/nasa-earth-observatory-agriculture.jpg';
+import { topics } from '../../data/topics';
+import { parseCoordinatePair } from '../../services/discovery/coordinates';
+import { getBundledDiscoverySummary } from '../../services/discovery/summary';
 import './home.css';
 import './home-media.css';
-import './home-interactions.css';
+import './home-reference-overrides.css';
+
+const visibleTopics = [...topics.filter((topic) => topic.id !== 'explore'), topics.find((topic) => topic.id === 'explore')];
+const topicMedia = { water: nisarOrbitConcept, 'ground-movement': nisarOrbitConcept, forests: earthObservatoryAgriculture, farms: earthObservatoryAgriculture, ice: nisarOrbitConcept, explore: nisarOrbitConcept };
 
 export default function HomePage({ navigate }) {
+  const [location, setLocation] = useState('');
+  const [error, setError] = useState('');
   const summary = getBundledDiscoverySummary();
-  const openExplore = ({ latitude, longitude }) => navigate(`/explore?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`);
-
-  return <div className="discovery-home">
-    <section className="discovery-lead">
-      <div className="discovery-lead-copy"><h1>Discover what’s changing on Earth.</h1><p>Start with a location, then inspect what the record can support.</p></div>
-      <figure className="discovery-context"><img src={nisarOrbitConcept} alt="Artist's concept of the NISAR satellite above Earth" /><figcaption><strong>Discovery workspace</strong><span>Coordinate-led review for NISAR catalog records and future investigation setup.</span><a href="https://www.jpl.nasa.gov/press-kits/nisar/gallery/" target="_blank" rel="noreferrer">NASA/JPL image credit</a></figcaption></figure>
+  const explore = (event) => { event.preventDefault(); const [latitude, longitude] = location.split(','); const parsed = parseCoordinatePair(latitude, longitude); if (!parsed.valid) { setError(parsed.error); return; } navigate(`/explore?lat=${parsed.latitude}&lon=${parsed.longitude}`); };
+  return <div className="discover-home">
+    <section className="discover-hero" style={{ backgroundImage: `url(${nisarOrbitConcept})` }}>
+      <div className="discover-hero-copy"><span>Earth observation for real-world insights</span><h1>Discover what’s changing on Earth.</h1><p>Explore NASA–ISRO NISAR catalog records with clear evidence boundaries, from water and forests to farms, ice, and ground movement.</p><form onSubmit={explore}><Search size={23} aria-hidden="true" /><label className="sr-only" htmlFor="discover-location">Enter decimal coordinates</label><input id="discover-location" value={location} onChange={(event) => { setLocation(event.target.value); setError(''); }} placeholder="Enter coordinates, e.g. 22.15, 89.65" /><button type="submit">Explore</button></form>{error && <p className="discover-error" role="alert">{error}</p>}</div>
+      <div className="hero-source"><MapPin size={17} /><span>Mission context image<br /><strong>NASA/JPL NISAR gallery</strong></span></div>
     </section>
-    <section className="discovery-workbench" aria-labelledby="workbench-title">
-      <div className="workbench-copy"><h2 id="workbench-title">Assess a location</h2><p>Enter decimal-degree coordinates to carry a precise location into the map workspace. Availability is assessed there against the source, time window, and product requirements.</p><CoordinateForm onSubmit={openExplore} /></div>
-      <SourceStatus summary={summary} />
-    </section>
-    <section className="catalog-strip" aria-labelledby="catalog-title"><div><h2 id="catalog-title">Product families in this reference</h2></div><div className="product-list" aria-label="Product families">{summary.productFamilies.map((product) => <span key={product}>{product}</span>)}</div></section>
-    <TopicReadinessList availability={summary.topicAvailability} onSelect={(topicId) => navigate(`/topics/${topicId}`)} />
-    <section className="discovery-notes"><p>This route reflects a local catalog snapshot. It is useful for understanding the available product vocabulary, but it is not a coverage guarantee, a live search, or an analysis result.</p><button type="button" className="method-link" onClick={() => navigate('/methodology')}>Read the methodology <ArrowUpRight size={16} aria-hidden="true" /></button></section>
+    <section className="discover-cards" aria-label="Discovery topics">{visibleTopics.map((topic) => <button type="button" key={topic.id} onClick={() => navigate(topic.id === 'explore' ? '/explore' : `/topics/${topic.id}`)}><div className={`topic-media topic-${topic.id}`}><img src={topicMedia[topic.id]} alt="" /><span>{topic.product}</span></div><div><h2>{topic.title}</h2><p>{topic.description}</p><ArrowRight size={18} /></div></button>)}</section>
+    <p className="imagery-note">Topic imagery is contextual NASA/JPL and NASA Earth Observatory material, not a displayed NISAR measurement.</p>
+    <section className="discover-evidence"><div><h2>Start with the data that exists.</h2><p>The current discovery reference is a bundled ASF catalog snapshot: {summary.observationCount} records from {summary.dateRange ? '18 Jun to 04 Oct 2026' : 'an unavailable period'}. It is not a live coverage guarantee.</p></div><button type="button" onClick={() => navigate('/explore')}>Open Explore Map <ArrowRight size={17} /></button></section>
   </div>;
 }

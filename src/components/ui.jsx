@@ -1,8 +1,8 @@
-import { ArrowRight, Info, MapPinned, Search, X } from 'lucide-react';
+import { ArrowRight, Globe2, Info, MapPinned, Search, X } from 'lucide-react';
 import { readinessCopy } from '../data/topics';
 
-export function Brand() {
-  return <span className="brand"><span className="brand-bars" aria-hidden="true"><i /><i /><i /></span><span>Earth Signal</span></span>;
+export function Brand({ tagline = false }) {
+  return <span className="brand"><span className="brand-globe" aria-hidden="true"><Globe2 size={27} strokeWidth={1.8} /></span><span className="brand-copy"><strong>Earth Signal</strong>{tagline && <small>Discover. Understand. Monitor.</small>}</span></span>;
 }
 
 export function StatusBadge({ status }) {
@@ -18,12 +18,13 @@ export function PageHeading({ eyebrow, title, copy, action }) {
   return <header className="page-heading"><span className="eyebrow">{eyebrow}</span><div><h1>{title}</h1><p>{copy}</p></div>{action}</header>;
 }
 
-export function SearchBox({ value, onChange, onSubmit, compact = false, placeholder = 'Enter coordinates, e.g. 22.15, 89.65' }) {
+export function SearchBox({ value, onChange, onSubmit, compact = false, placeholder = 'Enter coordinates, e.g. 22.15, 89.65', error = '' }) {
   return <form className={`search-box ${compact ? 'search-compact' : ''}`} onSubmit={onSubmit}>
     <Search size={18} aria-hidden="true" />
     <label className="sr-only" htmlFor="global-search">Enter coordinates</label>
-    <input id="global-search" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+    <input id="global-search" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? 'global-search-error' : undefined} />
     <button type="submit" aria-label="Explore these coordinates"><ArrowRight size={17} /></button>
+    {error && <span id="global-search-error" className="search-error" role="alert">{error}</span>}
   </form>;
 }
 
