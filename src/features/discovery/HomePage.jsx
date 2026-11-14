@@ -1,5 +1,5 @@
-import { ArrowRight, Compass, Map, Sprout, Trees, Waves, Move, Snowflake } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowRight, Compass, Map, Move, Snowflake, Sprout, Trees, Waves } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { topics } from '../../data/topics';
 import { Button, DemoNotice, SearchBox, StatusBadge } from '../../components/ui';
 
@@ -7,16 +7,42 @@ const icons = { water: Waves, 'ground-movement': Move, forests: Trees, farms: Sp
 
 export default function HomePage({ navigate }) {
   const [query, setQuery] = useState('');
+  const [selectedId, setSelectedId] = useState('farms');
+  const selected = useMemo(() => topics.find((topic) => topic.id === selectedId) || topics[0], [selectedId]);
+  const SelectedIcon = icons[selected.id];
   const goExplore = (event) => { event.preventDefault(); navigate(`/explore${query.trim() ? `?place=${encodeURIComponent(query.trim())}` : ''}`); };
+
   return <>
-    <section className="discovery-hero">
-      <div className="hero-copy"><span className="eyebrow">Earth observation, made understandable</span><h1>Discover what’s changing on <em>Earth.</em></h1><p>Explore NASA–ISRO NISAR observations, investigate the evidence, and follow places that matter.</p><div className="hero-actions"><Button onClick={() => navigate('/explore')}>Start exploring</Button><Button kind="secondary" icon={Compass} onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}>How it works</Button></div></div>
-      <div className="earth-canvas" aria-label="Illustrative Earth observation map, no live data"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="earth-disc"><span /><span /><span /></div><div className="map-grid" /><div className="earth-label"><i /> Evidence begins with a place</div></div>
+    <section className="signal-intro">
+      <div className="intro-statement">
+        <h1>Start with a place.<br />Follow the <i>evidence.</i></h1>
+        <p className="intro-copy">A working surface for understanding what an Earth observation can—and cannot—tell you about change.</p>
+        <div className="intro-actions"><Button onClick={() => navigate('/explore')}>Choose an area</Button><button className="plain-action" onClick={() => document.getElementById('method')?.scrollIntoView({ behavior: 'smooth' })}>Read the method <ArrowRight size={15} /></button></div>
+      </div>
+      <div className="observation-instrument" aria-label="Illustrative evidence trace; no live observations">
+        <div className="instrument-meta"><span>Observation path</span><span>Illustrative</span></div>
+        <div className="trace-map"><svg viewBox="0 0 560 310" preserveAspectRatio="none" aria-hidden="true"><path className="trace-base" d="M34 221 L123 166 L204 190 L283 91 L373 131 L446 61 L527 98" /><path className="trace-active" d="M34 221 L123 166 L204 190 L283 91 L373 131 L446 61 L527 98" /></svg>{topics.map((topic, index) => <button type="button" key={topic.id} onClick={() => setSelectedId(topic.id)} className={`trace-stop trace-stop-${index} ${selectedId === topic.id ? 'selected' : ''}`} aria-label={`Select ${topic.title}`} aria-pressed={selectedId === topic.id}><span /></button>)}</div>
+        <div className="instrument-reading"><div><span className="reading-label">Selected path</span><strong><SelectedIcon size={16} /> {selected.title}</strong></div><StatusBadge status={selected.readiness} /></div>
+        <p>{selected.limitation}</p>
+      </div>
     </section>
-    <section className="location-section"><div><span className="eyebrow">Start anywhere</span><h2>Where on Earth do you want to look?</h2><p>Enter coordinates now. Place-name search and map drawing will be added with an approved provider and map workflow.</p></div><SearchBox value={query} onChange={setQuery} onSubmit={goExplore} /></section>
-    <section className="section-wrap" id="topics"><div className="section-title"><div><span className="eyebrow">Discover by topic</span><h2>One workflow, six ways in.</h2></div><p>Topic cards show what is possible today, not what we hope to support later.</p></div><div className="topic-grid">{topics.map((topic) => { const Icon = icons[topic.id]; return <article className={`topic-card topic-${topic.id}`} key={topic.id}><div className="topic-top"><span className="topic-icon"><Icon size={20} /></span><StatusBadge status={topic.readiness} /></div><h3>{topic.title}</h3><p>{topic.description}</p><small>{topic.product}</small><button onClick={() => navigate(topic.id === 'explore' ? '/explore' : `/topics/${topic.id}`)}>Explore topic <ArrowRight size={15} /></button></article>; })}</div></section>
-    <section className="map-entry"><div><span className="eyebrow">Explore Earth</span><h2>A place for evidence, not imagined events.</h2><p>View available observation paths, define an area, and inspect the reasons an investigation is or is not ready.</p><Button onClick={() => navigate('/explore')}>Open Explore Map</Button></div><div className="map-entry-visual"><div className="map-entry-grid" /><div className="map-empty"><Map size={25} /><strong>No verified regions loaded</strong><span>Curated regions appear only after their source products and evidence records are validated.</span></div></div></section>
-    <section className="section-wrap signals"><div className="section-title"><div><span className="eyebrow">Signals worth exploring</span><h2>Verified stories belong here.</h2></div><DemoNotice /></div><div className="signal-empty"><p>No curated investigations are published yet.</p><span>When available, each story will show location, observation period, product, data state, and source evidence.</span></div></section>
-    <section className="how-section" id="how-it-works"><div><span className="eyebrow">How Earth Signal works</span><h2>From a question to evidence.</h2></div><ol>{[['01','Discover an area','Choose a topic, place, or coordinates.'],['02','Check real observations','See what can support a scientifically compatible investigation.'],['03','Understand and follow','Inspect evidence, limits, and future observation availability.']].map(([num,title,copy]) => <li key={num}><span>{num}</span><h3>{title}</h3><p>{copy}</p></li>)}</ol></section>
+
+    <section className="place-callout">
+      <div><h2>What place are you trying to understand?</h2><p>Use coordinates now. Place search and drawn areas arrive only with an approved map and geocoding workflow.</p></div>
+      <SearchBox value={query} onChange={setQuery} onSubmit={goExplore} />
+    </section>
+
+    <section className="topic-ledger" id="topics">
+      <header><div><h2>Choose the question before the product.</h2></div><p>Each path states its current evidence boundary. A quiet status is more useful than an optimistic promise.</p></header>
+      <div className="ledger-list">{topics.map((topic) => { const Icon = icons[topic.id]; return <article key={topic.id} className={selectedId === topic.id ? 'selected' : ''}><button onClick={() => { setSelectedId(topic.id); navigate(topic.id === 'explore' ? '/explore' : `/topics/${topic.id}`); }}><span className="ledger-topic"><Icon size={19} /><strong>{topic.title}</strong></span><span className="ledger-product">{topic.product}</span><StatusBadge status={topic.readiness} /><ArrowRight className="ledger-arrow" size={17} /></button></article>; })}</div>
+    </section>
+
+    <section className="method-section" id="method">
+      <div className="method-title"><h2>Evidence is a route,<br />not a result.</h2></div>
+      <ol><li><span>1</span><div><h3>Frame the place</h3><p>Set a question, area, and time window that can be evaluated against a specific observation product.</p></div></li><li><span>2</span><div><h3>Inspect readiness</h3><p>See whether the product, coverage, geometry, and quality requirements could support the intended method.</p></div></li><li><span>3</span><div><h3>Keep the limits</h3><p>Every future report preserves source, method, processing choices, and what the evidence cannot establish.</p></div></li></ol>
+      <DemoNotice />
+    </section>
+
+    <section className="closing-entry"><div><h2>Build an investigation<br />from the ground up.</h2></div><div><p>There are no pre-written stories or fabricated map events here. Open the map shell to record an area and inspect the exact conditions required for a real analysis.</p><Button onClick={() => navigate('/explore')} icon={Compass}>Open the map workspace</Button></div></section>
   </>;
 }

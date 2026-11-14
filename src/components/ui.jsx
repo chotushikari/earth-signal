@@ -18,12 +18,12 @@ export function PageHeading({ eyebrow, title, copy, action }) {
   return <header className="page-heading"><span className="eyebrow">{eyebrow}</span><div><h1>{title}</h1><p>{copy}</p></div>{action}</header>;
 }
 
-export function SearchBox({ value, onChange, onSubmit, compact = false }) {
+export function SearchBox({ value, onChange, onSubmit, compact = false, placeholder = 'Enter coordinates, e.g. 22.15, 89.65' }) {
   return <form className={`search-box ${compact ? 'search-compact' : ''}`} onSubmit={onSubmit}>
     <Search size={18} aria-hidden="true" />
-    <label className="sr-only" htmlFor="global-search">Search a place, region or coordinates</label>
-    <input id="global-search" value={value} onChange={(event) => onChange(event.target.value)} placeholder="Search a place, region or coordinates..." />
-    <button type="submit" aria-label="Explore this place"><ArrowRight size={17} /></button>
+    <label className="sr-only" htmlFor="global-search">Enter coordinates</label>
+    <input id="global-search" value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+    <button type="submit" aria-label="Explore these coordinates"><ArrowRight size={17} /></button>
   </form>;
 }
 

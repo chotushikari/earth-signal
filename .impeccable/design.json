@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "mode": "operate",
+  "world": "field-instrument-ledger",
+  "signatureInteraction": "topic evidence trace",
+  "surface": "/",
+  "entry": "coordinates-only",
+  "surfaces": "opaque"
+}
