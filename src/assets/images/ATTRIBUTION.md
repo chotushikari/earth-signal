@@ -8,5 +8,10 @@
 - Role: mission context only. It is not an observation, map layer, or analysis result.
 # Additional contextual imagery
 
+- `earth-atmosphere.jpg`: Earth surface texture distributed with Three.js examples, https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg. Contextual Earth visualization, no measurement overlay.
+- `nasa-logo.svg`: NASA identifying mark from https://www.nasa.gov/wp-content/themes/nasa/assets/images/nasa-logo.svg.
+- `asf-logo.svg`: ASF identifying mark from https://asf.alaska.edu/wp-content/uploads/2025/06/ASF-Logo.svg.
+- `isro-logo.svg`: ISRO identifying mark via Wikimedia Commons, https://commons.wikimedia.org/wiki/Special:FilePath/Indian_Space_Research_Organisation_Logo.svg. Agency marks identify sources and mission contributors; no endorsement is claimed.
+
 - `nasa-earth-observatory-agriculture.jpg` — NASA Earth Observatory, Mallee agricultural region imagery. Source: https://science.nasa.gov/earth/earth-observatory/. Used as topical context only, never as a NISAR observation or result.
 

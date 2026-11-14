@@ -8,16 +8,18 @@ import InvestigationsPage from './features/investigate/InvestigationsPage';
 import MyEarthPage from './features/account/MyEarthPage';
 import ReportPage from './features/reports/ReportPage';
 import MethodologyPage from './features/methodology/MethodologyPage';
+import { SourcesPage } from './components/SourcePartners';
 import { Collection, InvestigationStudio, InvestigationLibrary, ReportsStudio } from './features/studio/Studio';
 
 function useRoute() {
-  const [route, setRoute] = useState(window.location.pathname + window.location.search);
-  useEffect(() => { const update = () => setRoute(window.location.pathname + window.location.search); window.addEventListener('popstate', update); return () => window.removeEventListener('popstate', update); }, []);
-  const navigate = (to) => { window.history.pushState({}, '', to); setRoute(window.location.pathname + window.location.search); window.scrollTo({ top: 0, behavior: 'instant' }); };
-  return { path: route.split('?')[0], route, navigate };
+  const [route, setRoute] = useState(window.location.pathname + window.location.search + window.location.hash);
+  useEffect(() => { const update = () => setRoute(window.location.pathname + window.location.search + window.location.hash); window.addEventListener('popstate', update); return () => window.removeEventListener('popstate', update); }, []);
+  const navigate = (to) => { window.history.pushState({}, '', to); setRoute(window.location.pathname + window.location.search + window.location.hash); window.scrollTo({ top: 0, behavior: 'instant' }); };
+  return { path: route.split(/[?#]/)[0], route, navigate };
 }
 
 function RouteView({ path, navigate }) {
+  if (path === '/sources') return <SourcesPage />;
   if (path === '/' || path === '/discover') return <HomePage navigate={navigate} />;
   if (path.startsWith('/topics/')) return <TopicPage topicId={path.split('/')[2]} navigate={navigate} />;
   if (path === '/explore') return <ExplorePage navigate={navigate} />;
@@ -31,5 +33,6 @@ function RouteView({ path, navigate }) {
 
 export default function App() {
   const { path, route, navigate } = useRoute();
+  useEffect(() => {if(window.location.hash){const frame=requestAnimationFrame(()=>document.getElementById(window.location.hash.slice(1))?.scrollIntoView());return()=>cancelAnimationFrame(frame);}},[route]);
   return <AppShell path={path} navigate={navigate}><RouteView key={route} path={path} navigate={navigate} /></AppShell>;
 }

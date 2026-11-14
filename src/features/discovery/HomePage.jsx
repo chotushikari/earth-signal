@@ -9,6 +9,8 @@ import './home.css';
 import './home-media.css';
 import './home-reference-overrides.css';
 import { DiscoverySections } from '../studio/Studio';
+import HeroEarth, { AnimatedHeadline } from './HeroEarth';
+import './discover-motion.css';
 
 const visibleTopics = [...topics.filter((topic) => topic.id !== 'explore'), topics.find((topic) => topic.id === 'explore')];
 const topicMedia = { water: nisarOrbitConcept, 'ground-movement': nisarOrbitConcept, forests: earthObservatoryAgriculture, farms: earthObservatoryAgriculture, ice: nisarOrbitConcept, explore: nisarOrbitConcept };
@@ -40,9 +42,9 @@ export default function HomePage({ navigate }) {
   const summary = getBundledDiscoverySummary();
   const explore = (event) => { event.preventDefault(); const [latitude, longitude] = location.split(','); const parsed = parseCoordinatePair(latitude, longitude); if (!parsed.valid) { setError(parsed.error); return; } navigate(`/explore?lat=${parsed.latitude}&lon=${parsed.longitude}`); };
   return <div className="discover-home">
-    <section className="discover-hero" style={{ backgroundImage: `url(${nisarOrbitConcept})` }}>
-      <div className="discover-hero-copy"><span>Earth observation for real-world insights</span><h1>Discover what’s changing on Earth.</h1><p>Explore NASA–ISRO NISAR catalog records with clear evidence boundaries, from water and forests to farms, ice, and ground movement.</p><form onSubmit={explore}><Search size={23} aria-hidden="true" /><label className="sr-only" htmlFor="discover-location">Enter decimal coordinates</label><input id="discover-location" value={location} onChange={(event) => { setLocation(event.target.value); setError(''); }} placeholder="Enter coordinates, e.g. 22.15, 89.65" /><button type="submit">Explore</button></form>{error && <p className="discover-error" role="alert">{error}</p>}</div>
-      <div className="hero-source"><MapPin size={17} /><span>Mission context image<br /><strong>NASA/JPL NISAR gallery</strong></span></div>
+    <section className="discover-hero globe-hero">
+      <HeroEarth />
+      <div className="discover-hero-copy"><span>Earth observation for real-world insights</span><AnimatedHeadline /><p>Explore NASA–ISRO NISAR catalog records with clear evidence boundaries, from water and forests to farms, ice, and ground movement.</p><form onSubmit={explore}><Search size={23} aria-hidden="true" /><label className="sr-only" htmlFor="discover-location">Enter decimal coordinates</label><input id="discover-location" value={location} onChange={(event) => { setLocation(event.target.value); setError(''); }} placeholder="Enter coordinates, e.g. 22.15, 89.65" aria-invalid={!!error} aria-describedby={error?'discovery-error':undefined} /><button type="submit">Explore</button></form>{error && <p id="discovery-error" className="discover-error" role="alert">{error}</p>}</div>
     </section>
     <section className="discover-cards" aria-label="Discovery topics">{visibleTopics.map((topic) => <button type="button" key={topic.id} onClick={() => navigate(topic.id === 'explore' ? '/explore' : `/topics/${topic.id}`)}><div className={`topic-media topic-${topic.id}`}><img src={topicMedia[topic.id]} alt="" /><span>{topic.product}</span></div><div><h2>{topic.title}</h2><p>{topic.description}</p><ArrowRight size={18} /></div></button>)}</section>
     <p className="imagery-note">Topic imagery is contextual NASA/JPL and NASA Earth Observatory material, not a displayed NISAR measurement.</p>
