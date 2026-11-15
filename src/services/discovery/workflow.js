@@ -1,5 +1,6 @@
 import { normalizeCatalog } from '../../features/explorer/catalog.js';
 import { rectangleArea, resolveLocation } from './location.js';
+import {topicProducts} from '../../data/topics.js';
 
 export const DATASET_VERSION = 1;
 const key = 'earth-signal-datasets';
@@ -8,7 +9,8 @@ export function contextFromSearch(search) {
   const p = new URLSearchParams(search);
   const area = p.has('bounds') ? rectangleArea(p.get('bounds').split(',')) : null;
   const place = area || resolveLocation(p.has('lat') ? `${p.get('lat')}, ${p.get('lon')}` : 'Vembanad Lake, Kerala');
-  return {place, area: area?.valid ? area : null, product:p.get('product')==='all'?'':p.get('product') || 'GCOV', start:p.get('start') || '', end:p.get('end') || '', mode:p.get('mode') === 'snapshot' ? 'snapshot' : 'live'};
+  const product=p.get('product')==='all'?'':p.get('product') ?? topicProducts[p.get('topic')] ?? 'GCOV';
+  return {place, area: area?.valid ? area : null, product, start:p.get('start') || '', end:p.get('end') || '', mode:p.get('mode') === 'snapshot' ? 'snapshot' : 'live'};
 }
 export function contextParams(context) {
   const p = new URLSearchParams();

@@ -1,4 +1,5 @@
 import { ArrowRight, Globe2, Info, MapPinned, Search, X } from 'lucide-react';
+import {useEffect,useRef} from 'react';
 import { readinessCopy } from '../data/topics';
 
 export function Brand({ tagline = false }) {
@@ -15,7 +16,7 @@ export function Button({ children, kind = 'primary', icon = ArrowRight, ...props
 }
 
 export function PageHeading({ eyebrow, title, copy, action }) {
-  return <header className="page-heading"><span className="eyebrow">{eyebrow}</span><div><h1>{title}</h1><p>{copy}</p></div>{action}</header>;
+  return <header className="page-heading" aria-label={eyebrow}><div><h1>{title}</h1><p>{copy}</p></div>{action}</header>;
 }
 
 export function SearchBox({ value, onChange, onSubmit, compact = false, placeholder = 'Enter coordinates, e.g. 22.15, 89.65', error = '' }) {
@@ -34,10 +35,12 @@ export function EmptyState({ title, copy, action, icon = MapPinned }) {
 }
 
 export function DemoNotice() {
-  return <p className="demo-notice"><Info size={15} /> Demonstration interface only — no live NASA result is shown.</p>;
+  return <p className="demo-notice"><Info size={15} /> Demonstration interface only. No live NASA result is shown.</p>;
 }
 
 export function Drawer({ open, onClose, children }) {
+  const dialog=useRef(null);
+  useEffect(()=>{if(!open||!dialog.current)return;const previous=document.activeElement;const element=dialog.current;element.showModal();return()=>{if(element.open)element.close();previous?.focus();};},[open]);
   if (!open) return null;
-  return <div className="drawer"><div className="drawer-backdrop" onClick={onClose} /><aside><button className="icon-button" onClick={onClose} aria-label="Close navigation"><X size={18} /></button>{children}</aside></div>;
+  return <dialog ref={dialog} className="drawer" aria-label="Site navigation" onCancel={event=>{event.preventDefault();onClose();}}><div className="drawer-backdrop" onClick={onClose} /><aside><button className="icon-button" onClick={onClose} aria-label="Close navigation"><X size={18} /></button>{children}</aside></dialog>;
 }

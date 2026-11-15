@@ -3,6 +3,9 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "functions": {
+    "api/gcov.py": { "maxDuration": 105, "includeFiles": "science/**" }
+  },
   "rewrites": [
     {
       "source": "/((?!api/).*)",

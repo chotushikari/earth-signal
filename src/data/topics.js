@@ -19,3 +19,5 @@ export const readinessCopy = {
 export function findTopic(id) {
   return topics.find((topic) => topic.id === id) || topics[5];
 }
+
+export const topicProducts={water:'GCOV','ground-movement':'GUNW',ground:'GUNW',forests:'GCOV',farms:'SME2',ice:'GOFF',explore:'',any:''};

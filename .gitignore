@@ -11,6 +11,8 @@ build/
 .vercel
 .vercel/
 .qa/
+__pycache__/
+.venv/
 
 # Environment variables
 .env

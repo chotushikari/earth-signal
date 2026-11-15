@@ -1,0 +1,17 @@
+.env*
+.git/
+.hallmark/
+.impeccable/
+.qa/
+.venv/
+**/__pycache__/
+node_modules/
+dist/
+docs/
+outputs/
+nisar_area3/
+nisar_sme2.json
+supabase/
+tests/
+test-results/
+playwright-report/

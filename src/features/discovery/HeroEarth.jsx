@@ -53,11 +53,11 @@ export default function HeroEarth() {
       const observer=new ResizeObserver(resize);observer.observe(element);resize();
       const preference=matchMedia('(prefers-reduced-motion: reduce)');let visible=true,previous=0,frame;
       const intersection=new IntersectionObserver(([entry])=>{visible=entry.isIntersecting;});intersection.observe(element);
-      const animate=time=>{frame=requestAnimationFrame(animate);if(!visible||document.hidden){previous=time;return;}if(time-previous<33)return;const delta=Math.min((time-previous)/1000,.05);previous=time;if(!preference.matches&&!pauseRef.current){earth.rotation.y+=delta*.035;orbitGroup.rotation.z+=delta*.012;}renderer.render(scene,camera);};
+      const animate=time=>{frame=requestAnimationFrame(animate);if(!visible||document.hidden||preference.matches||pauseRef.current){previous=time;return;}if(time-previous<33)return;const delta=Math.min((time-previous)/1000,.05);previous=time;earth.rotation.y+=delta*.035;orbitGroup.rotation.z+=delta*.012;renderer.render(scene,camera);};
       frame=requestAnimationFrame(animate);
       cleanup=()=>{cancelAnimationFrame(frame);observer.disconnect();intersection.disconnect();texture.dispose();material.dispose();geometry.dispose();atmosphereMaterial.dispose();atmosphereGeometry.dispose();orbitResources.forEach(resource=>resource.dispose());renderer.dispose();renderer.domElement.remove();};
     }).catch(()=>setFailed(true));
     return ()=>{disposed=true;cleanup();};
   },[]);
-  return <div className="hero-earth" data-earth-ready={ready}><div ref={host} className="hero-earth-canvas" role="img" aria-label="Slowly rotating Earth with contextual surface imagery"/>{failed && <div className="earth-fallback"/>}<button className="earth-pause" aria-pressed={paused} onClick={()=>{setPaused(!paused);window.dispatchEvent(new CustomEvent('earth-signal-motion',{detail:!paused}));}}>{paused?'Resume animations':'Pause animations'}</button><span className="earth-credit">Earth texture · NASA / Three.js</span></div>;
+  return <div className="hero-earth" data-earth-ready={ready}><div ref={host} className="hero-earth-canvas" role="img" aria-label="Slowly rotating Earth with contextual surface imagery"/>{failed && <div className="earth-fallback"/>}<button className="earth-pause" aria-pressed={paused} onClick={()=>{setPaused(!paused);window.dispatchEvent(new CustomEvent('earth-signal-motion',{detail:!paused}));}}>{paused?'Resume animations':'Pause animations'}</button><span className="earth-credit">Earth texture: NASA / Three.js</span></div>;
 }

@@ -1,0 +1,26 @@
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: brand · redesign: full · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V3 · weakest: V, preserve the scientific workspace while improving task hierarchy */
+:root {
+ --es-font: "Manrope", system-ui, sans-serif;
+ --font-body: var(--es-font); --font-display: var(--es-font); --font-outlier: ui-monospace, monospace;
+ --es-ink: #17382c; --es-muted: #52675b; --es-paper: #f5f7f3; --es-surface: #fcfdf9; --es-well: #edf2e8;
+ --es-line: #d5dfd0; --es-field-edge: #738b7b; --es-forest: #075c34; --es-forest-hover: #064a2c; --es-on-forest: #f3f9ed;
+ --es-night: #031613; --es-night-raised: #0d2922; --es-night-line: #305345; --es-on-night: #f1f8f0; --es-night-muted: #bdcdbf;
+ --es-focus: #246d47; --es-focus-night: #b7edc3; --es-warning-bg: #fff0d4; --es-warning-ink: #78521a; --es-danger: #963d2c; --es-danger-bg: #f9e9e2;
+ --es-shadow: 0 12px 32px #03161320; --es-overlay: #03161399; --es-overlay-soft: #031613d9; --es-selection: #c8e4cd;
+ --es-type-body: 14px; --es-type-small: 12px; --es-type-meta: 11px; --es-radius: 8px; --es-gap: 20px;
+ --es-space-1: 4px; --es-space-2: 8px; --es-space-3: 12px; --es-space-4: 16px; --es-space-5: 24px; --es-space-6: 32px;
+ --es-container: 1600px; --es-duration: 160ms; --es-ease: cubic-bezier(.16,1,.3,1);
+ --color-paper: var(--es-paper); --color-paper-2: var(--es-well); --color-paper-3: var(--es-line); --color-ink: var(--es-ink);
+ --color-ink-2: var(--es-muted); --color-muted: var(--es-muted); --color-rule: var(--es-line); --color-accent: var(--es-forest);
+ --color-accent-ink: var(--es-on-forest); --color-focus: var(--es-focus); --color-error: var(--es-danger); --color-success: var(--es-forest);
+ --space-3xs: 2px; --space-2xs: 4px; --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px;
+ --space-xl: 40px; --space-2xl: 64px; --space-3xl: 96px; --space-4xl: 144px;
+ --space-20:20px; --space-28:28px; --space-32:32px; --space-48:48px; --space-56:56px;
+ --text-xs: 12px; --text-sm: 13px; --text-md: 14px; --text-lg: 16px; --text-xl: 20px; --text-2xl: 24px; --text-3xl: 32px;
+ --text-display-s: 32px; --text-display: 36px; --text-section: 24px; --text-title: 16px; --text-lead: 16px;
+ --container: var(--es-container); --gutter: 32px; --gap-columns: var(--es-gap); --tracking-display: -.025em;
+ --radius-card: var(--es-radius); --radius-pill: 999px; --rule-hair: 1px; --shadow-card: none;
+ --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms; --ease-out: var(--es-ease);
+ --z-base: 1; --z-raised: 10; --z-dropdown: 100; --z-sticky: 200; --z-sticky-nav: 300; --z-modal: 400; --z-toast: 500; --z-tooltip: 600;
+}

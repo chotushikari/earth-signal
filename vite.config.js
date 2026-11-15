@@ -1,10 +1,50 @@
 import { defineConfig, loadEnv } from 'vite';
+import { execFile } from 'node:child_process';
 import react from '@vitejs/plugin-react';
 import cesium from 'vite-plugin-cesium';
 import asfSearchHandler from './api/asf-search.js';
 import earthdataAssetHandler from './api/earthdata-asset.js';
 import watchpointsHandler from './api/watchpoints.js';
 import healthHandler from './api/health.js';
+
+let processing = false;
+async function gcovDevHandler(req, res) {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Cache-Control', 'no-store');
+  const send = (status, body) => {
+    res.statusCode = status;
+    res.end(JSON.stringify(body));
+  };
+  if (req.method !== 'POST') return send(405, {error: 'Use POST to process observations.'});
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of req) {
+    bytes += chunk.length;
+    if (bytes > 2048) return send(413, {error: 'GCOV request is too large.'});
+    chunks.push(chunk);
+  }
+  const raw = Buffer.concat(chunks).toString('utf8');
+  try { JSON.parse(raw); } catch { return send(400, {error: 'Invalid JSON request.'}); }
+  if (processing) return send(429, {error: 'Another radar window is being processed. Try again shortly.'});
+  processing = true;
+  const env = {...process.env, PYTHONDONTWRITEBYTECODE: '1'};
+  const child = execFile(process.env.EARTH_SIGNAL_PYTHON || 'python', ['-m', 'science.gcov'],
+    {env, timeout: 105_000, maxBuffer: 1024 * 1024, windowsHide: true}, (error, stdout) => {
+      processing = false;
+      if (res.destroyed) return;
+      if (error?.killed) return send(504, {error: 'Radar processing timed out. Try again.'});
+      if (error) return send(503, {error: 'The local radar processor is unavailable. Install requirements.txt first.'});
+      try {
+        const {status, body} = JSON.parse(stdout);
+        send(status, body);
+      } catch {
+        send(502, {error: 'The radar processor returned an invalid response.'});
+      }
+    });
+  child.stdin.on('error', () => {});
+  child.stdin.end(raw);
+  res.on('close', () => { if (!res.writableEnded) child.kill(); });
+}
 
 function wrapVercelHandler(handler) {
   return async (req, res) => {
@@ -62,6 +102,7 @@ function earthdataAndSupabaseDevProxy(env) {
     configureServer(server) {
       Object.assign(process.env, env);
       server.middlewares.use('/api/health', wrapVercelHandler(healthHandler));
+      server.middlewares.use('/api/gcov', gcovDevHandler);
       server.middlewares.use(
         '/api/asf-search',
         wrapVercelHandler(asfSearchHandler)
