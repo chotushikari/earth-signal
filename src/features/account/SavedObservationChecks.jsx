@@ -1,0 +1,10 @@
+import {useEffect,useRef,useState} from 'react';
+import {ArrowRight,RefreshCw} from 'lucide-react';
+import {datasetRoute,fetchDataset} from '../../services/discovery/workflow';
+import {date} from '../investigate/EvidenceWorkspace';
+export default function SavedObservationChecks({places,navigate}){
+ const [results,setResults]=useState({}),[running,setRunning]=useState(false);const active=useRef(null);
+ useEffect(()=>()=>active.current?.abort(),[]);
+ const check=async()=>{active.current?.abort();const controller=new AbortController();active.current=controller;setRunning(true);setResults({});await Promise.all(places.map(async p=>{try{const dataset=await fetchDataset({place:{valid:true,latitude:p.lat,longitude:p.lon,name:p.name,region:p.region},product:'GCOV',mode:'live',start:'',end:''},controller.signal);if(!controller.signal.aborted)setResults(previous=>({...previous,[p.id]:{dataset}}));}catch(e){if(!controller.signal.aborted)setResults(previous=>({...previous,[p.id]:{error:e.message}}));}}));if(!controller.signal.aborted)setRunning(false);};
+ return <section className="saved-observation-checks"><h2>Check saved locations</h2><p>Request current GCOV metadata for your saved places. Checks run only when you request them; background alerts are not enabled.</p><button className="evidence-primary" disabled={!places.length||running} onClick={check}><RefreshCw size={15}/>{running?'Checking ASF…':'Check observations'}</button>{!places.length&&<p>Save a location in Explore first.</p>}<div aria-live="polite">{places.map(p=>{const result=results[p.id];if(!result)return null;const dates=result.dataset?.records.map(r=>r.startTime).filter(Boolean).sort();return <div className="saved-check-row" key={p.id}><div><strong>{p.name}</strong><small>{result.error||`${result.dataset.records.length} returned · latest ${date(dates.at(-1))} · checked ${new Date(result.dataset.fetchedAt).toLocaleTimeString()}`}</small></div>{result.dataset&&<button className="evidence-secondary" onClick={()=>navigate(datasetRoute('/records',result.dataset))}>Records <ArrowRight size={14}/></button>}</div>;})}</div></section>;
+}

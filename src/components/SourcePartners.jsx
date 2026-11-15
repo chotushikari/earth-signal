@@ -1,6 +1,7 @@
 import nasa from '../assets/images/nasa-logo.svg';
 import asf from '../assets/images/asf-logo.svg';
 import isro from '../assets/images/isro-logo.svg';
+import './source-partners.css';
 const partners = [
   {id:'nasa',name:'NASA',image:nasa,role:'Mission science & imagery',copy:'NASA/JPL supplies the NISAR L-band radar and mission resources. Earth Signal uses NASA mission context imagery and discovers NISAR metadata through ASF.',url:'https://science.nasa.gov/mission/nisar/'},
   {id:'isro',name:'ISRO',image:isro,role:'NISAR mission partner',copy:'ISRO supplies the S-band radar, spacecraft and launch capability for NISAR. Bhoonidhi is an official data access route. Direct Bhoonidhi integration is not connected in Earth Signal yet.',url:'https://www.isro.gov.in/ISRO_EN/Mission_GSLVF16_NISAR_Home.html'},

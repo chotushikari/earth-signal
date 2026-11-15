@@ -161,6 +161,11 @@ export default function GlobeViewer({
   activePartner = null,
   catalogOnly = false,
   focusCoordinates = null,
+  onControlsReady,
+  mapMode = '3d',
+  drawingArea = false,
+  onAreaSelected,
+  areaBounds = null,
 }) {
   const hostRef = useRef(null);
   const viewerRef = useRef(null);
@@ -176,15 +181,42 @@ export default function GlobeViewer({
     message: 'Initializing Cesium Ion 3D terrain & satellite globe…',
   });
   const [viewerReady, setViewerReady] = useState(false);
+  const [cameraReady,setCameraReady]=useState(false);
   const [terrainActive, setTerrainActive] = useState(false);
   const [showRawStrips, setShowRawStrips] = useState(false);
+  const drawingRef=useRef(drawingArea);
+  drawingRef.current=drawingArea;
+  useEffect(()=>{
+    const viewer=viewerRef.current;if(!viewerReady||!viewer||viewer.isDestroyed())return;
+    onControlsReady?.({zoomIn:()=>{viewer.camera.zoomIn(Math.max(1000,viewer.camera.positionCartographic.height*.35));viewer.scene.requestRender();},zoomOut:()=>{viewer.camera.zoomOut(Math.max(1000,viewer.camera.positionCartographic.height*.5));viewer.scene.requestRender();},recenter:(latitude,longitude)=>{if(!Number.isFinite(latitude)||!Number.isFinite(longitude))return;viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(longitude,latitude,200000),duration:matchMedia('(prefers-reduced-motion: reduce)').matches?0:.8});}});
+    return()=>onControlsReady?.(null);
+  },[viewerReady,onControlsReady]);
+  useEffect(()=>{
+    const viewer=viewerRef.current;if(!viewerReady||!viewer||viewer.isDestroyed())return;
+    setCameraReady(false);
+    const focus=()=>{if(viewer.isDestroyed())return;if(focusCoordinates){const [latitude,longitude]=focusCoordinates.split(',').map(Number);if(Number.isFinite(latitude)&&Number.isFinite(longitude))viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(longitude,latitude,200000),orientation:{heading:0,pitch:-Math.PI/2,roll:0}});}viewer.scene.requestRender();setCameraReady(true);};
+    const target=mapMode==='2d'?Cesium.SceneMode.SCENE2D:Cesium.SceneMode.SCENE3D;
+    if(viewer.scene.mode===target){focus();return;}
+    const remove=viewer.scene.morphComplete.addEventListener(focus);const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?0:.6;if(mapMode==='2d')viewer.scene.morphTo2D(duration);else viewer.scene.morphTo3D(duration);return remove;
+  },[viewerReady,mapMode,focusCoordinates]);
+  useEffect(()=>{
+    const viewer=viewerRef.current;if(!viewerReady||!viewer||viewer.isDestroyed()||!drawingArea)return;
+    const points=[];const handler=new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);const previousCursor=viewer.scene.canvas.style.cursor;viewer.scene.canvas.style.cursor='crosshair';
+    handler.setInputAction(event=>{const ray=viewer.camera.getPickRay(event.position);const position=ray&&viewer.scene.globe.pick(ray,viewer.scene);if(!position)return;const point=Cesium.Cartographic.fromCartesian(position);points.push([Cesium.Math.toDegrees(point.longitude),Cesium.Math.toDegrees(point.latitude)]);if(points.length===2){const [a,b]=points;onAreaSelected?.([Math.min(a[0],b[0]),Math.min(a[1],b[1]),Math.max(a[0],b[0]),Math.max(a[1],b[1])]);}},Cesium.ScreenSpaceEventType.LEFT_CLICK);
+    return()=>{handler.destroy();if(!viewer.isDestroyed())viewer.scene.canvas.style.cursor=previousCursor;};
+  },[viewerReady,drawingArea,onAreaSelected]);
+  useEffect(()=>{
+    const viewer=viewerRef.current;if(!viewerReady||!viewer||viewer.isDestroyed()||!areaBounds)return;
+    const entity=viewer.entities.add({rectangle:{coordinates:Cesium.Rectangle.fromDegrees(...areaBounds),material:Cesium.Color.fromCssColorString('#68b58e').withAlpha(.16),outline:true,outlineColor:Cesium.Color.fromCssColorString('#b7f5d0')}});viewer.scene.requestRender();
+    return()=>{if(!viewer.isDestroyed())viewer.entities.remove(entity);};
+  },[viewerReady,areaBounds]);
   useEffect(() => {
     const viewer=viewerRef.current;
-    if(!viewerReady||!viewer||viewer.isDestroyed()||!focusCoordinates)return;
+    if(catalogOnly||!viewerReady||!viewer||viewer.isDestroyed()||!focusCoordinates)return;
     const [latitude,longitude]=focusCoordinates.split(',').map(Number);
     if(!Number.isFinite(latitude)||!Number.isFinite(longitude))return;
     viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(longitude,latitude,600000),orientation:{heading:0,pitch:-Math.PI/2,roll:0},duration:matchMedia('(prefers-reduced-motion: reduce)').matches?0:1.1});
-  },[viewerReady,focusCoordinates]);
+  },[viewerReady,focusCoordinates,catalogOnly]);
 
   useEffect(() => {
     onSelectRef.current = onSelect;
@@ -498,6 +530,7 @@ export default function GlobeViewer({
 
       const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
       handler.setInputAction((event) => {
+        if(drawingRef.current)return;
         const picked = viewer.scene.pick(event.position);
         const entity = picked?.id;
         const property = entity?.properties?.catalogId;
@@ -639,7 +672,7 @@ export default function GlobeViewer({
         entity.polygon = {
           hierarchy: hierarchies[0],
           material: Cesium.Color.fromCssColorString(fillHex).withAlpha(
-            isRawStrip ? 0.06 : 0.2
+            catalogOnly ? 0.035 : isRawStrip ? 0.06 : 0.2
           ),
           classificationType: Cesium.ClassificationType.BOTH,
         };
@@ -654,7 +687,7 @@ export default function GlobeViewer({
 
         const center = featureCenter(feature);
         const fBounds = featureBounds(feature);
-        if (center && !isRawStrip) {
+        if (center && !isRawStrip && !catalogOnly) {
           const labelLat = fBounds
             ? isAscending
               ? fBounds.north + 0.08
@@ -785,16 +818,16 @@ export default function GlobeViewer({
           // Fly into a tilted 3D terrain perspective when the user selects a new footprint
           if (lastFlownIdRef.current !== id) {
             lastFlownIdRef.current = id;
-            const isSme2 = id === SME2_L3_DATASET.granuleId;
+            const isSme2 = !catalogOnly && id === SME2_L3_DATASET.granuleId;
             viewer.camera.flyTo({
               destination: Cesium.Cartesian3.fromDegrees(
                 isSme2 ? 13.94 : center.longitude,
-                isSme2 ? 77.36 : center.latitude - 3.6,
+                catalogOnly ? center.latitude : isSme2 ? 77.36 : center.latitude - 3.6,
                 isSme2 ? 28_000 : 420_000
               ),
               orientation: {
                 heading: Cesium.Math.toRadians(0.0),
-                pitch: Cesium.Math.toRadians(isSme2 ? -40.0 : -34.0),
+                pitch: Cesium.Math.toRadians(catalogOnly ? -90 : isSme2 ? -40.0 : -34.0),
                 roll: 0.0,
               },
               duration: 1.0,
@@ -1101,7 +1134,7 @@ export default function GlobeViewer({
   };
 
   return (
-    <section className="x-globe-card" aria-label="3D catalog footprint globe">
+    <section className="x-globe-card" aria-label="3D catalog footprint globe" data-map-ready={viewerReady} data-camera-ready={cameraReady}>
       <style>{`
         .x-globe-card {
           position: relative;

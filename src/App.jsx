@@ -11,6 +11,7 @@ import MethodologyPage from './features/methodology/MethodologyPage';
 import { SourcesPage } from './components/SourcePartners';
 import ReadinessPage from './features/explore/ReadinessPage';
 import ObservationPage from './features/investigate/ObservationPage';
+import {RecordsPage, InvestigationWorkspace, EvidenceLibrary} from './features/investigate/EvidenceWorkspace';
 import { Collection, InvestigationStudio, InvestigationLibrary, ReportsStudio } from './features/studio/Studio';
 
 function useRoute() {
@@ -21,16 +22,19 @@ function useRoute() {
 }
 
 function RouteView({ path, navigate }) {
+  if (path === '/records') return <RecordsPage navigate={navigate}/>;
+  if (path === '/investigate/selected') return <InvestigationWorkspace navigate={navigate}/>;
   if (path === '/observations') return <ObservationPage navigate={navigate}/>;
   if (path === '/readiness') return <ReadinessPage navigate={navigate}/>;
   if (path === '/sources') return <SourcesPage />;
   if (path === '/' || path === '/discover') return <HomePage navigate={navigate} />;
   if (path.startsWith('/topics/')) return <TopicPage topicId={path.split('/')[2]} navigate={navigate} />;
   if (path === '/explore') return <ExplorePage navigate={navigate} />;
-  if (path === '/investigations') return <InvestigationLibrary navigate={navigate} />;
+  if (path === '/investigations') return <EvidenceLibrary navigate={navigate} />;
   if (path.startsWith('/investigate/')) return <InvestigationStudio navigate={navigate} />;
   if (path === '/my-earth') return <Collection navigate={navigate} />;
-  if (path === '/reports' || path.startsWith('/reports/')) return <ReportsStudio navigate={navigate} />;
+  if (path === '/reports') return <EvidenceLibrary navigate={navigate} reports/>;
+  if (path.startsWith('/reports/')) return <ReportsStudio navigate={navigate} />;
   if (path === '/methodology') return <MethodologyPage />;
   return <HomePage navigate={navigate} />;
 }

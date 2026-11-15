@@ -1,97 +1,69 @@
-import { CalendarDays, Check, CircleHelp, Filter, Layers3, MapPinned, Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import rawCatalog from '../../../resources/asf-results-2026-10-08_23-06-00.json' with { type: 'json' };
-import { topics } from '../../data/topics';
-import GlobeViewer from '../explorer/GlobeViewer';
-import { normalizeCatalog } from '../explorer/catalog';
-import { getBundledDiscoverySummary } from '../../services/discovery/summary';
-import './explore-workspace.css';
-import './explore-workspace-overrides.css';
-import { parseCoordinatePair } from '../../services/discovery/coordinates';
-
-function formatDate(value) { return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(value)); }
-
-export default function ExplorePage({ navigate }) {
-  const query = new URLSearchParams(window.location.search);
-  const initialCoordinates = query.has('lat') && query.has('lon') ? `${query.get('lat')}, ${query.get('lon')}` : '';
-  const [coordinates, setCoordinates] = useState(initialCoordinates);
-  const [selectedTopic, setSelectedTopic] = useState('water');
-  const [selectedId, setSelectedId] = useState(null);
-  const [showFootprints, setShowFootprints] = useState(true);
-  const [showTimeline, setShowTimeline] = useState(true);
-  const [readinessFilter, setReadinessFilter] = useState('all');
-  const [mode, setMode] = useState('live');
-  const [liveRecords, setLiveRecords] = useState([]);
-  const [requestState, setRequestState] = useState('loading');
-  const [requestError, setRequestError] = useState('');
-  const [fetchedAt, setFetchedAt] = useState('');
-  const [revision, setRevision] = useState(0);
-  const [start, setStart] = useState('');
-  const [end, setEnd] = useState('');
-  const [product, setProduct] = useState('GCOV');
-  const [focusCoordinates,setFocusCoordinates]=useState(initialCoordinates||null);
-  useEffect(() => {
-    if (mode !== 'live') return;
-    const controller = new AbortController();
-    const load = async () => {
-      setRequestState('loading'); setRequestError(''); setSelectedId(null);
-      const params = new URLSearchParams({maxResults:'80'});
-      if (coordinates.trim()) {
-        const [lat, lon] = coordinates.split(','); const parsed = parseCoordinatePair(lat,lon);
-        if (!parsed.valid) { setRequestError(parsed.error);setRequestState('error');return; }
-        params.set('lat',parsed.latitude); params.set('lon',parsed.longitude);
-        setFocusCoordinates(`${parsed.latitude},${parsed.longitude}`);
-      }
-      if(start) params.set('start',start); if(end) params.set('end',end); if(product) params.set('processingLevel',product);
-      try {
-        const response = await fetch(`/api/asf-search?${params}`,{signal:controller.signal});
-        const data = await response.json();
-        if(!response.ok) throw new Error(data.error || 'Catalog request failed.');
-        if(!Array.isArray(data.records)) throw new Error('Unexpected catalog response.');
-        setLiveRecords(data.records);setFetchedAt(data.fetchedAt);setRequestState('success');
-      } catch(error) {if(!controller.signal.aborted){setRequestState('error');setRequestError(error.message);setLiveRecords([]);}}
-    };
-    load(); return () => controller.abort();
-    // Search is explicitly submitted to avoid one provider request per keystroke.
-  }, [mode, revision]);
-  const snapshotSummary = getBundledDiscoverySummary();
-  const catalog = useMemo(() => normalizeCatalog(mode === 'snapshot' ? rawCatalog : liveRecords), [mode,liveRecords]);
-  const geometryNote = mode === 'live' && requestState === 'success' ? `${liveRecords.length} records returned; ${catalog.errors.length} without usable footprints.` : '';
-  const dates = catalog.features.map(x=>x.properties.acquisitionDate).filter(Boolean).sort();
-  const summary = mode === 'snapshot' ? snapshotSummary : {observationCount:catalog.features.length,sourceLabel:'ASF Search · live request',dateRange:dates.length?{start:dates[0],end:dates.at(-1)}:null,productFamilies:[...new Set(catalog.features.map(x=>x.properties.productType).filter(Boolean))]};
-  const visibleFeatures = showFootprints ? catalog.features : [];
-  const selected = catalog.features.find((feature) => feature.id === selectedId);
-  const topic = topics.find((item) => item.id === selectedTopic) || topics[0];
-  const showSnapshot = mode === 'snapshot' && readinessFilter !== 'location';
-  const showLocationRequirement = readinessFilter !== 'snapshot';
-
-  return <div className="explore-workspace">
-    <div className="explore-tools" aria-hidden="true">
-      <div className="tool-tabs" aria-hidden="true"><span className="is-active"><MapPinned size={19} /></span><span><Layers3 size={19} /></span><span><Filter size={19} /></span></div>
-    </div>
-    <section className="explore-left">
-      <header><h1>Explore the catalog</h1><p>Start with coordinates, then inspect exact observation footprints.</p></header>
-      <label className="location-input"><Search size={17} /><input value={coordinates} onChange={(event) => setCoordinates(event.target.value)} placeholder="Latitude, longitude" /><button type="button" onClick={() => setCoordinates('')} aria-label="Clear coordinates">×</button></label>
-      <section className="location-state"><MapPinned size={18} /><div><strong>{coordinates || 'No location selected'}</strong><span>{coordinates ? 'Coordinates carried from Discover' : 'Enter coordinates on Discover to assess a location.'}</span></div></section>
-      <section className="filter-panel"><h2>Observation search</h2><label>Source<select value={mode} onChange={e=>setMode(e.target.value)}><option value="live">Live ASF catalog</option><option value="snapshot">Bundled reference snapshot</option></select></label><label>Science product<select value={product} onChange={e=>setProduct(e.target.value)}><option value="">All NISAR products</option>{['GCOV','SME2','GUNW','GOFF'].map(x=><option key={x}>{x}</option>)}</select></label><label>From<input type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label>To<input type="date" value={end} onChange={e=>setEnd(e.target.value)}/></label><button type="button" disabled={mode==='snapshot'||requestState==='loading'} onClick={()=>setRevision(x=>x+1)}>{requestState==='loading' && mode==='live'?'Searching…':'Search observations'}</button>{mode==='live' && <p role="status">{requestState==='error'?requestError:requestState==='loading'?'Requesting ASF metadata…':`${catalog.features.length} footprints returned${liveRecords.length===80?' · result limit reached':''}.`}</p>}{mode==='live' && fetchedAt && requestState==='success' && <small>Fetched {new Date(fetchedAt).toLocaleString()}</small>}</section>
-      <section className="topic-filter"><h2>Explore by topic</h2>{topics.filter((item) => item.id !== 'explore').map((item) => <button key={item.id} type="button" aria-pressed={selectedTopic === item.id} className={selectedTopic === item.id ? 'is-active' : ''} onClick={() => setSelectedTopic(item.id)}><span>{item.title}</span>{selectedTopic === item.id && <Check size={16} />}</button>)}</section>
-      <section className="filter-panel"><div><h2>Filters</h2><button type="button" onClick={() => { setShowFootprints(true); setShowTimeline(true); }}>Reset</button></div><label><input type="checkbox" checked={showFootprints} onChange={(event) => setShowFootprints(event.target.checked)} /> Acquisition footprints</label><label><input type="checkbox" checked={showTimeline} onChange={(event) => setShowTimeline(event.target.checked)} /> Acquisition timeline</label></section>
-    </section>
-    <main className="explore-map-stage">
-      <GlobeViewer catalogOnly focusCoordinates={focusCoordinates} features={visibleFeatures} selectedId={selectedId} onSelect={setSelectedId} />
-      <div className="map-layer-panel"><div><Layers3 size={16} /><strong>Visible layers</strong></div><label><input type="checkbox" checked={showFootprints} onChange={(event) => setShowFootprints(event.target.checked)} /> Catalog footprints</label><label><input type="checkbox" disabled /> Change analysis</label></div>
-      {showTimeline && <section className="acquisition-timeline"><div><span><CalendarDays size={15} /> Returned acquisition range</span><small>{summary.observationCount} {mode==='live'?'live':'snapshot'} records</small></div><div className="timeline-rule">{summary.dateRange && <><i /><time>{formatDate(summary.dateRange.start)}</time><time>{formatDate(summary.dateRange.end)}</time></>}</div></section>}
-    </main>
-    <aside className="readiness-rail">
-      <button type="button" className="studio-primary" onClick={()=>{const [lat,lon]=coordinates.split(',');const point=parseCoordinatePair(lat,lon);navigate(`/readiness${point.valid?`?lat=${point.latitude}&lon=${point.longitude}`:''}`);}}>Check data readiness</button>
-      {selected && <button type="button" className="studio-secondary" onClick={()=>navigate(`/observations?granule=${encodeURIComponent(selected.id)}`)}>Inspect real observation evidence</button>}
-      {geometryNote && <p role="status">{geometryNote}</p>}
-      <header><Layers3 size={24} /><div><h2>Data readiness</h2><p>{coordinates ? `Location: ${coordinates}` : 'Select a location to evaluate coverage.'}</p></div><CircleHelp size={19} /></header>
-      <div className="readiness-notice"><strong>{mode==='live'?'Live discovery':'Reference snapshot'} · science assessment pending</strong><p>{mode==='live'?`${catalog.features.length} valid footprints from ASF. `:''}Metadata discovery does not verify calibration, compatible observation pairs or valid science pixels.</p></div>
-      <div className="readiness-tabs"><button type="button" aria-pressed={readinessFilter === 'all'} className={readinessFilter === 'all' ? 'is-active' : ''} onClick={() => setReadinessFilter('all')}>All</button><button type="button" aria-pressed={readinessFilter === 'snapshot'} className={readinessFilter === 'snapshot' ? 'is-active' : ''} onClick={() => setReadinessFilter('snapshot')}>Snapshot</button><button type="button" aria-pressed={readinessFilter === 'location'} className={readinessFilter === 'location' ? 'is-active' : ''} onClick={() => setReadinessFilter('location')}>Needs location</button></div>
-      {showSnapshot && <article className="readiness-card"><div><strong>Snapshot coverage</strong><span>Catalog scope only</span></div><em>Snapshot</em><p>This catalog reference shows product families and dates, not location coverage or analysis readiness.</p><dl><div><dt>Catalog source</dt><dd>{summary.sourceLabel}</dd></div><div><dt>Coverage</dt><dd>{summary.dateRange ? `${formatDate(summary.dateRange.start)} – ${formatDate(summary.dateRange.end)}` : 'Unavailable'}</dd></div><div><dt>Products</dt><dd>{summary.productFamilies.join(', ')}</dd></div></dl></article>}
-      {showLocationRequirement && <article className="readiness-card"><div><strong>{topic.title}</strong><span>{topic.product}</span></div><em>Needs location</em><p>{topic.limitation}</p><dl><div><dt>Requirement</dt><dd>Exact coordinates and a time window</dd></div><div><dt>Topic</dt><dd>{topic.title}</dd></div></dl></article>}
-      <article className="selected-record"><h3>Selected observation</h3>{selected ? <><strong>{selected.properties.granuleName || selected.id}</strong><p>{selected.properties.acquisitionDate || 'Acquisition date unavailable'} · {selected.properties.processingLevel || 'Product unavailable'}</p></> : <p>Select a footprint on the globe to inspect its catalog record. This is not an analysis result.</p>}</article>
-    </aside>
-  </div>;
+import { ArrowRight, Bookmark, CalendarDays, Check, ChevronLeft, ChevronRight, Crosshair, Globe2, Layers3, LoaderCircle, Map as MapIcon, MapPin, Minus, Plus, Search, ShieldCheck, Snowflake, Sprout, SquareDashedMousePointer, Trees, Waves, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import rawCatalog from '../../../resources/asf-results-2026-10-08_23-06-00.json' with {type:'json'};
+import GlobeViewer from '../explorer/CatalogMap';
+import {contextFromSearch, contextParams, datasetRoute, makeDataset, storeDataset, candidatePairs} from '../../services/discovery/workflow';
+import {normalizeCatalog} from '../explorer/catalog';
+import {curatedPlaces,resolveLocation,rectangleArea} from '../../services/discovery/location';
+import './explore-design.css';
+const lenses=[['water','Water & Wetlands','GCOV',Waves],['ground','Ground Movement','GUNW',Layers3],['forests','Forests & Vegetation','GCOV',Trees],['farms','Farms & Soil','SME2',Sprout],['ice','Ice & Glaciers','GOFF',Snowflake],['any','Any Location','',Globe2]];
+const formatDate=value=>value?new Intl.DateTimeFormat('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(value)):'Not supplied';
+export default function ExplorePage({navigate}){
+ const initialContext=contextFromSearch(window.location.search);
+ const query=new URLSearchParams(window.location.search);
+ const initial=query.has('lat')?`${query.get('lat')}, ${query.get('lon')}`:curatedPlaces[0].name;
+ const [input,setInput]=useState(initial),[place,setPlace]=useState(initialContext.place);
+ const [tab,setTab]=useState(initialContext.area?'area':'search'),[detailTab,setDetailTab]=useState('Overview'),[lens,setLens]=useState('water');
+ const [product,setProduct]=useState(initialContext.product),[start,setStart]=useState(initialContext.start),[end,setEnd]=useState(initialContext.end),[mode,setMode]=useState(initialContext.mode);
+ const [records,setRecords]=useState([]),[status,setStatus]=useState('loading'),[error,setError]=useState(''),[fetchedAt,setFetchedAt]=useState('');
+ const [request,setRequest]=useState(()=>({...initialContext,revision:0}));
+ const [selectedId,setSelectedId]=useState(null),[footprints,setFootprints]=useState(true),[timeline,setTimeline]=useState(true),[layers,setLayers]=useState(false),[mapMode,setMapMode]=useState('2d');
+ const [controls,setControls]=useState(null),[drawing,setDrawing]=useState(false),[bounds,setBounds]=useState(initialContext.area?.bounds||['','','','']),[area,setArea]=useState(initialContext.area);
+ const [dataset,setDataset]=useState(null);
+ const handoff=path=>dataset?datasetRoute(path,dataset):`${path}?${contextParams(request)}`;
+ const [saved,setSaved]=useState(false),[saveMessage,setSaveMessage]=useState('');
+ const catalog=useMemo(()=>normalizeCatalog(records),[records]);
+ const selected=catalog.features.find(f=>f.id===selectedId);
+ const sorted=useMemo(()=>[...catalog.features].sort((a,b)=>String(a.properties.startTime).localeCompare(String(b.properties.startTime))),[catalog]);
+ const dates=records.map(r=>r.startTime).filter(v=>v&&!Number.isNaN(Date.parse(v))).sort();
+ const families=[...new Set(records.map(r=>r.processingLevel).filter(Boolean))];
+ useEffect(()=>{
+  const controller=new AbortController();setStatus('loading');setError('');setSelectedId(null);setRecords([]);setDataset(null);
+  if(request.mode==='snapshot'){setRecords(rawCatalog.length===1&&Array.isArray(rawCatalog[0])?rawCatalog[0]:rawCatalog);setStatus('success');setFetchedAt('');setDataset(storeDataset(makeDataset({records:rawCatalog.length===1&&Array.isArray(rawCatalog[0])?rawCatalog[0]:rawCatalog,limit:(rawCatalog.length===1&&Array.isArray(rawCatalog[0])?rawCatalog[0]:rawCatalog).length},request)));return()=>controller.abort();}
+  if(!request.place.valid){setStatus('error');setError(request.place.error);return()=>controller.abort();}
+  const params=new URLSearchParams({maxResults:'80'});
+  if(request.area)params.set('intersectsWith',request.area.wkt);else{params.set('lat',request.place.latitude);params.set('lon',request.place.longitude);}
+  if(request.product)params.set('processingLevel',request.product);if(request.start)params.set('start',request.start);if(request.end)params.set('end',request.end);
+  fetch(`/api/asf-search?${params}`,{signal:controller.signal}).then(async response=>{const body=await response.json();if(!response.ok)throw new Error(body.error||'Observation search failed.');if(!Array.isArray(body.records))throw new Error('Unexpected catalog response.');const result=storeDataset(makeDataset(body,request));setDataset(result);setRecords(result.records);setFetchedAt(body.fetchedAt);setStatus('success');}).catch(e=>{if(!controller.signal.aborted){setStatus('error');setError(e.message);}});
+  return()=>controller.abort();
+ },[request]);
+ const search=event=>{event?.preventDefault();setError('');const target=tab==='area'?rectangleArea(bounds):resolveLocation(input);if(!target.valid){setError(target.error);return;}if(start&&end&&start>end){setError('Start date must be before end date.');return;}setPlace(target);setSaved(false);setSaveMessage('');const nextArea=tab==='area'?target:null;setArea(nextArea);setDrawing(false);setRequest({place:target,area:nextArea,product,start,end,mode,revision:request.revision+1});};
+ const chooseLens=([id,,scienceProduct])=>{setLens(id);setProduct(scienceProduct);};
+ const acceptArea=useCallback(values=>{const result=rectangleArea(values);if(!result.valid){setError(result.error);return;}setBounds(values.map(x=>x.toFixed(4)));setArea(result);setDrawing(false);setError('');},[]);
+ const chooseFrame=delta=>{const index=sorted.findIndex(f=>f.id===selectedId);const next=Math.max(0,Math.min(sorted.length-1,index+delta));if(sorted[next])setSelectedId(sorted[next].id);};
+ useEffect(()=>{if(!place.valid)return;try{const id=`custom:${place.latitude.toFixed(4)},${place.longitude.toFixed(4)}`;setSaved(JSON.parse(localStorage.getItem('earth-signal-places')||'[]').includes(id));}catch{setSaved(false);}},[place]);
+ const savePlace=()=>{try{const id=`custom:${place.latitude.toFixed(4)},${place.longitude.toFixed(4)}`;const list=JSON.parse(localStorage.getItem('earth-signal-custom-places')||'[]');const next=saved?list.filter(p=>p.id!==id):[...list.filter(p=>p.id!==id),{id,name:place.name,region:place.region,lat:place.latitude,lon:place.longitude}];localStorage.setItem('earth-signal-custom-places',JSON.stringify(next));const ids=JSON.parse(localStorage.getItem('earth-signal-places')||'[]');localStorage.setItem('earth-signal-places',JSON.stringify(saved?ids.filter(x=>x!==id):[...new Set([...ids,id])]));setSaved(!saved);setSaveMessage(saved?'Removed from this browser.':'Location saved in this browser.');}catch{setSaveMessage('Browser storage is unavailable.');}};
+ return <div className="explore-design">
+  <aside className="explore-search"><h1>Explore</h1><div className="ex-tabs" aria-label="Location selection"><button className={tab==='search'?'active':''} aria-pressed={tab==='search'} onClick={()=>{setTab('search');setDrawing(false);}}>Search</button><button className={tab==='area'?'active':''} aria-pressed={tab==='area'} onClick={()=>setTab('area')}>Draw Area</button></div><form onSubmit={search}><div className="ex-form-fields">
+   {tab==='search'?<><label className="ex-location"><Search size={16}/><span className="sr-only">Location or coordinates</span><input aria-label="Location or coordinates" list="explore-places" value={input} onChange={e=>setInput(e.target.value)} placeholder="Place or latitude, longitude"/><button type="button" aria-label="Clear location" onClick={()=>setInput('')}><X size={14}/></button></label><datalist id="explore-places">{curatedPlaces.map(p=><option key={p.name} value={p.name}/>)}</datalist></>:<div className="ex-area"><button type="button" className={drawing?'drawing':''} onClick={()=>{setDrawing(!drawing);setError('');}}><SquareDashedMousePointer size={16}/>{drawing?'Cancel drawing':'Select two map corners'}</button><p>{drawing?'Click two opposite corners on the map.':'Use the map, or enter bounds below.'}</p><div>{['West','South','East','North'].map((label,i)=><label key={label}>{label}<input aria-label={`${label} bound`} type="number" step="any" value={bounds[i]} onChange={e=>setBounds(bounds.map((v,j)=>j===i?e.target.value:v))}/></label>)}</div></div>}
+   <fieldset className="ex-lenses"><legend>Topic</legend>{lenses.map(item=>{const [id,title,,Icon]=item;return <button type="button" key={id} className={lens===id?'active':''} aria-pressed={lens===id} onClick={()=>chooseLens(item)}><Icon size={16}/>{title}{lens===id&&<Check size={13}/>}</button>;})}</fieldset>
+   <fieldset className="ex-dates"><legend>Date range</legend><label><span>From</span><input aria-label="Start date" type="date" value={start} onChange={e=>setStart(e.target.value)}/></label><label><span>To</span><input aria-label="End date" type="date" value={end} onChange={e=>setEnd(e.target.value)}/></label></fieldset>
+   <fieldset className="ex-products"><legend>NISAR product</legend>{[['GCOV','Surface change'],['SME2','Soil moisture'],['GUNW','Displacement'],['GOFF','Surface motion']].map(([id,label])=><label key={id}><input type="radio" name="product" checked={product===id} onChange={()=>setProduct(id)}/><span>{id} <small>({label})</small></span></label>)}<label><input type="radio" name="product" checked={product===''} onChange={()=>setProduct('')}/>All products</label></fieldset>
+   <details className="ex-source"><summary>Data source</summary><select aria-label="Catalog source" value={mode} onChange={e=>setMode(e.target.value)}><option value="live">Live ASF catalog</option><option value="snapshot">Bundled reference snapshot</option></select><p>Snapshot mode is a reference dataset, not a local coverage check.</p></details>
+   </div>{error&&<p role="alert" className="ex-error">{error}</p>}<button type="submit" className="ex-search-button" disabled={status==='loading'}>{status==='loading'?<LoaderCircle size={16} className="ex-spin"/>:<Search size={16}/>} {status==='loading'?'Searching…':'Search observations'}</button><p className="ex-search-status" role="status">{status==='loading'?'Requesting ASF metadata…':status==='error'?'Search unavailable. Please retry.':`${records.length} observations · ${catalog.features.length} drawable footprints`}</p>
+  </form></aside>
+  <section className={`explore-canvas ${drawing?'is-drawing':''}`} aria-label="Observation map"><GlobeViewer catalogOnly drapeRadarOnGlobe={false} focusCoordinates={place.valid?`${place.latitude},${place.longitude}`:null} features={footprints?catalog.features:[]} selectedId={selectedId} onSelect={setSelectedId} onControlsReady={setControls} mapMode={mapMode} drawingArea={drawing} onAreaSelected={acceptArea} areaBounds={area?.bounds}/>
+   <div className="ex-map-modes" aria-label="Map view">{[['3d','Globe',Globe2],['2d','Map',MapIcon]].map(([id,title,Icon])=><button key={id} aria-pressed={mapMode===id} className={mapMode===id?'active':''} onClick={()=>setMapMode(id)}><Icon size={14}/>{title}</button>)}</div>
+   <label className="ex-footprint-toggle"><span>NISAR footprints</span><input aria-label="NISAR footprints" type="checkbox" checked={footprints} onChange={e=>setFootprints(e.target.checked)}/></label>
+   {drawing&&<div className="ex-draw-instruction" role="status">Select two opposite corners · maximum 5° per side</div>}
+   <div className="ex-map-controls" aria-label="Map controls"><button aria-label="Zoom in" disabled={!controls} onClick={()=>controls.zoomIn()}><Plus size={19}/></button><button aria-label="Zoom out" disabled={!controls} onClick={()=>controls.zoomOut()}><Minus size={19}/></button><button aria-label="Recenter location" disabled={!controls} onClick={()=>controls.recenter(place.latitude,place.longitude)}><Crosshair size={19}/></button><button aria-label="Map layers" aria-expanded={layers} className={layers?'active':''} onClick={()=>setLayers(!layers)}><Layers3 size={19}/></button></div>
+   {layers&&<div className="ex-layer-menu"><h2>Map layers</h2><label><input type="checkbox" checked={footprints} onChange={e=>setFootprints(e.target.checked)}/> Acquisition footprints</label><label><input type="checkbox" checked={timeline} onChange={e=>setTimeline(e.target.checked)}/> Acquisition timeline</label><p>Basemap imagery is geographic context. A scientific change layer has not been computed.</p></div>}
+   {timeline&&<div className="ex-timeline"><div><CalendarDays size={14}/><strong>Acquisition timeline</strong><span>{sorted.length} mapped observations</span></div><div className="ex-timeline-track"><button aria-label="Previous observation" disabled={!sorted.length} onClick={()=>chooseFrame(-1)}><ChevronLeft size={17}/></button><input aria-label="Observation timeline" type="range" min="0" max={Math.max(0,sorted.length-1)} disabled={!sorted.length} value={Math.max(0,sorted.findIndex(f=>f.id===selectedId))} onChange={e=>setSelectedId(sorted[Number(e.target.value)]?.id)}/><button aria-label="Next observation" disabled={!sorted.length} onClick={()=>chooseFrame(1)}><ChevronRight size={17}/></button></div><div className="ex-timeline-dates"><span>{formatDate(dates[0])}</span><span>{selected?formatDate(selected.properties.startTime):'Select an acquisition'}</span><span>{formatDate(dates.at(-1))}</span></div></div>}
+  </section>
+  <aside className="explore-inspector"><header><div><h2>{place.valid?place.name:'Choose a location'}</h2><p>{place.region||'Search a place or define an area.'}</p></div><button aria-label={saved?'Unsave location':'Save location'} aria-pressed={saved} disabled={!place.valid} onClick={savePlace}><Bookmark size={18} fill={saved?'currentColor':'none'}/></button></header><div className="ex-location-context"><Globe2 size={42} strokeWidth={1}/><div><strong>{area?'Area of interest':'Area of interest'}</strong><span>{place.valid?`${place.latitude.toFixed(4)}°, ${place.longitude.toFixed(4)}°`:'No coordinates selected'}</span></div></div>{saveMessage&&<p className="ex-save-status" role="status">{saveMessage}</p>}<div className="ex-tabs ex-detail-tabs">{['Overview','Observations','Analysis'].map(x=><button key={x} className={detailTab===x?'active':''} aria-pressed={detailTab===x} onClick={()=>setDetailTab(x)}>{x}</button>)}</div>
+   <div className="ex-inspector-body">{detailTab==='Overview'?<><dl className="ex-summary"><div><dt>Available observations</dt><dd>{status==='loading'?'…':records.length}</dd></div><div><dt>Date coverage</dt><dd>{dates.length?`${formatDate(dates[0])} – ${formatDate(dates.at(-1))}`:'No dates returned'}</dd></div><div><dt>Products</dt><dd>{families.join(', ')||'—'}</dd></div><div><dt>Drawable footprints</dt><dd>{catalog.features.length}</dd></div><div><dt>Metadata candidates</dt><dd>{candidatePairs(records).length} pairs · QA pending</dd></div><div><dt>Source</dt><dd>{request.mode==='live'?'ASF · live query':'Reference snapshot'}</dd></div></dl><p className="ex-provenance">{fetchedAt?`Fetched ${new Date(fetchedAt).toLocaleString()}. `:''}Results are capped at 80 records. Observation availability does not establish scientific readiness.</p><div className="ex-quality"><ShieldCheck size={17}/><div><strong>Evidence before interpretation</strong><p>Pixel quality, calibration and common coverage are checked during scientific processing.</p></div></div></>:detailTab==='Observations'?<><h3>Returned acquisitions</h3><button className="ex-secondary" disabled={!dataset} onClick={()=>navigate(handoff('/records'))}>Open record table <ArrowRight size={15}/></button>{!catalog.features.length?<p className="ex-empty">No drawable observations. Change your location, dates or product and search again.</p>:<div className="ex-observation-list">{sorted.map(f=><button key={f.id} className={selectedId===f.id?'active':''} onClick={()=>setSelectedId(f.id)}><span>{formatDate(f.properties.startTime)}</span><strong>{f.properties.processingLevel}</strong><small>{f.properties.flightDirection||'Direction not supplied'}</small></button>)}</div>}</>:<><h3>Investigation readiness</h3><p className="ex-empty">Metadata is available for discovery. A scientific investigation additionally requires compatible products, valid pixel coverage and a processing method.</p><button className="ex-secondary" onClick={()=>navigate(handoff('/readiness'))}>Check data readiness <ArrowRight size={15}/></button></>}
+   {selected&&<section className="ex-selected"><h3>Selected observation</h3><strong>{selected.properties.processingLevel} · {formatDate(selected.properties.startTime)}</strong><p>{selected.id}</p><button className="ex-secondary" onClick={()=>navigate(`/observations?granule=${encodeURIComponent(selected.id)}`)}>View source evidence <ArrowRight size={15}/></button></section>}
+   </div><div className="ex-inspector-action"><button className="ex-secondary" disabled={!dataset} onClick={()=>navigate(handoff('/records'))}>Browse records <ArrowRight size={15}/></button><button className="ex-primary" disabled={!place.valid||status==='loading'} onClick={()=>selected?navigate(`/observations?granule=${encodeURIComponent(selected.id)}`):navigate(handoff('/readiness'))}>{selected?'Inspect observation':'Start investigation'} <ArrowRight size={16}/></button><small>{selected?'Source metadata and provenance':'Check data readiness first'}</small></div>
+  </aside>
+ </div>;
 }

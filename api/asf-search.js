@@ -1,5 +1,23 @@
 import crypto from 'node:crypto';
 const PRODUCTS = new Set(['GCOV','GUNW','GOFF','SME2','GSLC','RSLC','RIFG','RUNW','ROFF','L0B']);
+// Bound memory and retain the original fetch timestamp when reusing metadata.
+const cache=new Map(),pending=new Map();
+async function requestCatalog(params){
+  const key=params.toString(),cached=cache.get(key);
+  if(cached&&Date.now()-cached.time<300000)return {...cached.body,cache:'hit'};
+  if(pending.has(key))return pending.get(key);
+  const task=(async()=>{
+    let upstream;
+    for(let attempt=0;attempt<2;attempt++){
+      try{upstream=await fetch(`https://api.daac.asf.alaska.edu/services/search/param?${params}`,{headers:{Accept:'application/json','User-Agent':'EarthSignal/2.0'},signal:AbortSignal.timeout(10000)});if(upstream.ok)break;if(![429,502,503,504].includes(upstream.status)||attempt===1)throw new Error('ASF unavailable');await upstream.body?.cancel();}
+      catch(error){if(attempt===1)throw error;}
+    }
+    if(!upstream?.ok)throw new Error('ASF unavailable');
+    const payload=await upstream.json();if(!Array.isArray(payload))throw new Error('Unexpected ASF response');
+    const body={source:'ASF Search',fetchedAt:new Date().toISOString(),query:Object.fromEntries(params),limit:params.has('granule_list')?1:Number(params.get('maxResults')),records:payload.length===1&&Array.isArray(payload[0])?payload[0]:payload};
+    cache.set(key,{time:Date.now(),body});if(cache.size>12)cache.delete(cache.keys().next().value);return {...body,cache:'miss'};
+  })();pending.set(key,task);try{return await task;}finally{pending.delete(key);}
+}
 export function buildSearchParams(query = {}) {
   const params = new URLSearchParams({dataset:'NISAR', output:'json'});
   const limit = Number(query.maxResults ?? 80);
@@ -39,11 +57,8 @@ export default async function handler(req, res) {
   let params;
   try { params = buildSearchParams(req.query); } catch (error) { return res.status(400).json({error:error.message,code:'INVALID_SEARCH'}); }
   try {
-    const upstream = await fetch(`https://api.daac.asf.alaska.edu/services/search/param?${params}`, {headers:{Accept:'application/json','User-Agent':'EarthSignal/2.0'},signal:AbortSignal.timeout(20000)});
-    if (!upstream.ok) return res.status(502).json({error:`ASF search is unavailable (HTTP ${upstream.status}).`,code:'ASF_UNAVAILABLE'});
-    const payload = await upstream.json();
-    if (!Array.isArray(payload)) return res.status(502).json({error:'Unexpected ASF response.',code:'INVALID_UPSTREAM'});
+    const body=await requestCatalog(params);
     res.setHeader('Cache-Control','s-maxage=300, stale-while-revalidate=600');
-    return res.status(200).json({source:'ASF Search',fetchedAt:new Date().toISOString(),query:Object.fromEntries(params),limit:params.has('granule_list')?1:Number(params.get('maxResults')),records:payload.length===1 && Array.isArray(payload[0]) ? payload[0] : payload});
+    return res.status(200).json(body);
   } catch { return res.status(502).json({error:'ASF search timed out or could not be reached. Please retry.',code:'ASF_UNAVAILABLE'}); }
 }

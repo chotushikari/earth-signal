@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "test:readiness": "node tests/readiness.test.mjs",
+    "test:location": "node tests/location.test.mjs",
+    "test:workflow": "node tests/workflow.test.mjs",
     "test:live": "node tests/live-smoke.mjs",
     "test:ui": "playwright test",
-    "verify": "npm run test:api && npm run test:discovery && npm run test:readiness && npm run check:secrets && npm run build",
+    "verify": "npm run test:api && npm run test:discovery && npm run test:readiness && npm run test:location && npm run test:workflow && npm run check:secrets && npm run build",
     "test:api": "node tests/api.test.mjs",
     "dev": "vite",
     "build": "vite build",

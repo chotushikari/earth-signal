@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {resolveLocation,rectangleArea} from '../src/services/discovery/location.js';
+assert.equal(resolveLocation('Vembanad Lake, Kerala').latitude,9.62);
+assert.equal(resolveLocation('21.95, 88.77').longitude,88.77);
+assert.equal(resolveLocation('Not a supported place').valid,false);
+assert.equal(resolveLocation('91, 0').valid,false);
+assert.equal(rectangleArea(['','','','']).valid,false);
+assert.equal(rectangleArea([80,20,79,21]).valid,false);
+assert.equal(rectangleArea([80,20,90,21]).valid,false);
+const area=rectangleArea([76,9,76.5,9.5]);assert.equal(area.valid,true);assert.equal(area.longitude,76.25);assert.equal(area.wkt,'POLYGON((76 9,76.5 9,76.5 9.5,76 9.5,76 9))');
+console.log('Curated locations, coordinate bounds and rectangle validation passed.');
