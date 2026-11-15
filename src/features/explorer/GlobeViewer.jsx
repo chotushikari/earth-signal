@@ -160,6 +160,7 @@ export default function GlobeViewer({
   onStartAutoCompare,
   activePartner = null,
   catalogOnly = false,
+  focusCoordinates = null,
 }) {
   const hostRef = useRef(null);
   const viewerRef = useRef(null);
@@ -177,6 +178,13 @@ export default function GlobeViewer({
   const [viewerReady, setViewerReady] = useState(false);
   const [terrainActive, setTerrainActive] = useState(false);
   const [showRawStrips, setShowRawStrips] = useState(false);
+  useEffect(() => {
+    const viewer=viewerRef.current;
+    if(!viewerReady||!viewer||viewer.isDestroyed()||!focusCoordinates)return;
+    const [latitude,longitude]=focusCoordinates.split(',').map(Number);
+    if(!Number.isFinite(latitude)||!Number.isFinite(longitude))return;
+    viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(longitude,latitude,600000),orientation:{heading:0,pitch:-Math.PI/2,roll:0},duration:matchMedia('(prefers-reduced-motion: reduce)').matches?0:1.1});
+  },[viewerReady,focusCoordinates]);
 
   useEffect(() => {
     onSelectRef.current = onSelect;

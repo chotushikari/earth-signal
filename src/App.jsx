@@ -9,6 +9,8 @@ import MyEarthPage from './features/account/MyEarthPage';
 import ReportPage from './features/reports/ReportPage';
 import MethodologyPage from './features/methodology/MethodologyPage';
 import { SourcesPage } from './components/SourcePartners';
+import ReadinessPage from './features/explore/ReadinessPage';
+import ObservationPage from './features/investigate/ObservationPage';
 import { Collection, InvestigationStudio, InvestigationLibrary, ReportsStudio } from './features/studio/Studio';
 
 function useRoute() {
@@ -19,6 +21,8 @@ function useRoute() {
 }
 
 function RouteView({ path, navigate }) {
+  if (path === '/observations') return <ObservationPage navigate={navigate}/>;
+  if (path === '/readiness') return <ReadinessPage navigate={navigate}/>;
   if (path === '/sources') return <SourcesPage />;
   if (path === '/' || path === '/discover') return <HomePage navigate={navigate} />;
   if (path.startsWith('/topics/')) return <TopicPage topicId={path.split('/')[2]} navigate={navigate} />;

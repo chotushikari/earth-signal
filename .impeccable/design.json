@@ -1,11 +1,16 @@
 {
   "schema": 1,
   "mode": "operate",
-  "world": "scientific-intake-desk",
-  "signatureInteraction": "immediate decimal-coordinate validation",
+  "world": "forest-observatory",
+  "signatureInteraction": "rotating-earth-mission-context-with-pause",
   "surface": "/",
   "entry": "coordinates-only",
-  "surfaces": "opaque",
+  "surfaces": "dark-discover-light-science-workspaces",
   "sourceState": "bundled-snapshot-provenance",
-  "readinessState": "needs-location"
+  "readinessState": "needs-location",
+  "sharedShell": "dark-forest-global-navigation",
+  "discover": "dark-image-led-coordinate-entry",
+  "topicArt": "generated-editorial-art-with-visible-label",
+  "workspaceMode": "light-science-and-evidence-surfaces",
+  "motion": "earth-rotation-pausable-and-reduced-motion-aware"
 }

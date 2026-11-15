@@ -29,6 +29,7 @@ export default function ExplorePage({ navigate }) {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [product, setProduct] = useState('GCOV');
+  const [focusCoordinates,setFocusCoordinates]=useState(initialCoordinates||null);
   useEffect(() => {
     if (mode !== 'live') return;
     const controller = new AbortController();
@@ -39,6 +40,7 @@ export default function ExplorePage({ navigate }) {
         const [lat, lon] = coordinates.split(','); const parsed = parseCoordinatePair(lat,lon);
         if (!parsed.valid) { setRequestError(parsed.error);setRequestState('error');return; }
         params.set('lat',parsed.latitude); params.set('lon',parsed.longitude);
+        setFocusCoordinates(`${parsed.latitude},${parsed.longitude}`);
       }
       if(start) params.set('start',start); if(end) params.set('end',end); if(product) params.set('processingLevel',product);
       try {
@@ -76,11 +78,13 @@ export default function ExplorePage({ navigate }) {
       <section className="filter-panel"><div><h2>Filters</h2><button type="button" onClick={() => { setShowFootprints(true); setShowTimeline(true); }}>Reset</button></div><label><input type="checkbox" checked={showFootprints} onChange={(event) => setShowFootprints(event.target.checked)} /> Acquisition footprints</label><label><input type="checkbox" checked={showTimeline} onChange={(event) => setShowTimeline(event.target.checked)} /> Acquisition timeline</label></section>
     </section>
     <main className="explore-map-stage">
-      <GlobeViewer catalogOnly features={visibleFeatures} selectedId={selectedId} onSelect={setSelectedId} />
+      <GlobeViewer catalogOnly focusCoordinates={focusCoordinates} features={visibleFeatures} selectedId={selectedId} onSelect={setSelectedId} />
       <div className="map-layer-panel"><div><Layers3 size={16} /><strong>Visible layers</strong></div><label><input type="checkbox" checked={showFootprints} onChange={(event) => setShowFootprints(event.target.checked)} /> Catalog footprints</label><label><input type="checkbox" disabled /> Change analysis</label></div>
       {showTimeline && <section className="acquisition-timeline"><div><span><CalendarDays size={15} /> Returned acquisition range</span><small>{summary.observationCount} {mode==='live'?'live':'snapshot'} records</small></div><div className="timeline-rule">{summary.dateRange && <><i /><time>{formatDate(summary.dateRange.start)}</time><time>{formatDate(summary.dateRange.end)}</time></>}</div></section>}
     </main>
     <aside className="readiness-rail">
+      <button type="button" className="studio-primary" onClick={()=>{const [lat,lon]=coordinates.split(',');const point=parseCoordinatePair(lat,lon);navigate(`/readiness${point.valid?`?lat=${point.latitude}&lon=${point.longitude}`:''}`);}}>Check data readiness</button>
+      {selected && <button type="button" className="studio-secondary" onClick={()=>navigate(`/observations?granule=${encodeURIComponent(selected.id)}`)}>Inspect real observation evidence</button>}
       {geometryNote && <p role="status">{geometryNote}</p>}
       <header><Layers3 size={24} /><div><h2>Data readiness</h2><p>{coordinates ? `Location: ${coordinates}` : 'Select a location to evaluate coverage.'}</p></div><CircleHelp size={19} /></header>
       <div className="readiness-notice"><strong>{mode==='live'?'Live discovery':'Reference snapshot'} · science assessment pending</strong><p>{mode==='live'?`${catalog.features.length} valid footprints from ASF. `:''}Metadata discovery does not verify calibration, compatible observation pairs or valid science pixels.</p></div>

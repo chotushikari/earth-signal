@@ -8,6 +8,8 @@
 - Role: mission context only. It is not an observation, map layer, or analysis result.
 # Additional contextual imagery
 
+- `editorial-earth-topics.png`: AI-generated editorial landscape artwork, built-in Imagegen. Exact prompt and purpose recorded in `editorial-earth-topics.prompt.md`. This asset is not scientific satellite imagery.
+
 - `earth-atmosphere.jpg`: Earth surface texture distributed with Three.js examples, https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg. Contextual Earth visualization, no measurement overlay.
 - `nasa-logo.svg`: NASA identifying mark from https://www.nasa.gov/wp-content/themes/nasa/assets/images/nasa-logo.svg.
 - `asf-logo.svg`: ASF identifying mark from https://asf.alaska.edu/wp-content/uploads/2025/06/ASF-Logo.svg.

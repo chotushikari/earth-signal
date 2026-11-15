@@ -1,5 +1,6 @@
 const HOSTS = new Set(['nisar.asf.earthdatacloud.nasa.gov','datapool.asf.alaska.edu','cumulus.asf.earthdatacloud.nasa.gov']);
 const MAX_BYTES = 3 * 1024 * 1024;
+const BROWSE_CDN_HOSTS=new Set(['d1mv8zhcvry6x4.cloudfront.net']);
 export default async function handler(req,res) {
   res.setHeader('Cache-Control','private, no-store');
   if (req.method !== 'GET') return res.status(405).json({error:'Method not allowed'});
@@ -9,12 +10,22 @@ export default async function handler(req,res) {
   const token=(process.env.EARTHDATA_TOKEN || '').trim();
   if (!token) return res.status(503).json({code:'EARTHDATA_NOT_CONFIGURED',error:'Protected NASA assets are not configured.'});
   try {
-    const upstream=await fetch(url,{redirect:'manual',headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)});
+    const signal=AbortSignal.timeout(15000);
+    let target=url,upstream;
+    for(let redirects=0;redirects<4;redirects++){
+      upstream=await fetch(target,{redirect:'manual',headers:HOSTS.has(target.hostname)?{Authorization:`Bearer ${token}`}:{},signal});
+      if(![301,302,303,307,308].includes(upstream.status))break;
+      const next=new URL(upstream.headers.get('location')||'',target);
+      await upstream.body?.cancel();
+      if(next.protocol!=='https:'||next.username||next.password||next.port||(!HOSTS.has(next.hostname)&&!BROWSE_CDN_HOSTS.has(next.hostname)))return res.status(502).json({error:'NASA browse redirect requires an unsupported authentication route.'});
+      target=next;
+    }
     if (!upstream.ok) return res.status(502).json({error:'NASA asset access failed. Authentication or redirected access may be required.'});
     if (Number(upstream.headers.get('content-length'))>MAX_BYTES) {await upstream.body?.cancel();return res.status(413).json({error:'Asset exceeds the browse limit.'});}
     let size=0; const chunks=[];
     for await (const chunk of upstream.body) {size+=chunk.length;if(size>MAX_BYTES) return res.status(413).json({error:'Asset exceeds the browse limit.'});chunks.push(chunk);}
-    const type=upstream.headers.get('content-type') || 'application/octet-stream';
+    const upstreamType=upstream.headers.get('content-type') || 'application/octet-stream';
+    const type=url.pathname.toLowerCase().endsWith('.png')?'image/png':upstreamType;
     if (type.includes('text/html')) return res.status(502).json({error:'NASA returned an authentication page.'});
     res.setHeader('Content-Type',type);res.setHeader('X-Content-Type-Options','nosniff');
     return res.status(200).send(Buffer.concat(chunks));

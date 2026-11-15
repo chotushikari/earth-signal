@@ -5,6 +5,12 @@ export function buildSearchParams(query = {}) {
   const limit = Number(query.maxResults ?? 80);
   if (!Number.isInteger(limit) || limit < 1 || limit > 250) throw new Error('maxResults must be an integer from 1 to 250.');
   params.set('maxResults', String(limit));
+  if(query.granule!==undefined){
+    if(typeof query.granule!=='string'||!/^NISAR_[A-Za-z0-9_-]{10,240}$/.test(query.granule))throw new Error('A single valid NISAR granule identifier is required.');
+    params.set('granule_list',query.granule);
+    // ASF rejects maxResults for an exact (non-wildcard) granule lookup.
+    params.delete('maxResults');
+  }
   if (query.processingLevel) {
     const product = String(query.processingLevel).toUpperCase();
     if (!PRODUCTS.has(product)) throw new Error('Unsupported NISAR science product.');
@@ -38,6 +44,6 @@ export default async function handler(req, res) {
     const payload = await upstream.json();
     if (!Array.isArray(payload)) return res.status(502).json({error:'Unexpected ASF response.',code:'INVALID_UPSTREAM'});
     res.setHeader('Cache-Control','s-maxage=300, stale-while-revalidate=600');
-    return res.status(200).json({source:'ASF Search',fetchedAt:new Date().toISOString(),query:Object.fromEntries(params),limit:Number(params.get('maxResults')),records:payload.length===1 && Array.isArray(payload[0]) ? payload[0] : payload});
+    return res.status(200).json({source:'ASF Search',fetchedAt:new Date().toISOString(),query:Object.fromEntries(params),limit:params.has('granule_list')?1:Number(params.get('maxResults')),records:payload.length===1 && Array.isArray(payload[0]) ? payload[0] : payload});
   } catch { return res.status(502).json({error:'ASF search timed out or could not be reached. Please retry.',code:'ASF_UNAVAILABLE'}); }
 }
