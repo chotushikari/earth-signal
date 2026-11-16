@@ -18,7 +18,7 @@ The processor reads a 128 × 128 window from each GCOV HDF5 file. It requires ma
 
 ## Explore and inspect records
 
-Search a curated place or decimal coordinates, or draw an area in Explore. Filter by date and product, select footprints on the Cesium map, then open Readiness or the acquisition ledger. Observation pages can sample a single GCOV acquisition. Other products currently support catalog and metadata review.
+Search a suggested place or decimal coordinates, or draw a rectangle in Explore. Filter by UTC day, product, orbit direction and relative track. Readiness and Records offer suitable source selections for running a window analysis. Export the valid pixel values with their projected coordinates or save a report with the query, results, quality checks and source provenance. [Research workflow and supported measurements](docs/RESEARCH_WORKFLOW.md)
 
 ![Explore workspace with a Cesium basemap, NISAR acquisition footprints, search controls and the data readiness inspector](docs/media/explore.jpg)
 

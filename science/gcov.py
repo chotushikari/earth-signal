@@ -8,7 +8,6 @@ import math
 import os
 import re
 import struct
-import sys
 import time
 from urllib.parse import urljoin, urlparse
 import zlib
@@ -17,6 +16,7 @@ import h5py
 import numpy as np
 from pyproj import CRS, Transformer
 import requests
+from urllib3.exceptions import HTTPError as TransportError
 
 
 ARCHIVE = "nisar.asf.earthdatacloud.nasa.gov"
@@ -46,6 +46,15 @@ class RangeFile(io.RawIOBase):
         self._fetch(0, 7)
 
     def _fetch(self, start, end):
+        for attempt in range(3):
+            try:
+                return self._fetch_once(start, end)
+            except (requests.ConnectionError, requests.Timeout, TransportError):
+                if attempt == 2 or time.monotonic() >= self.deadline:
+                    raise ProcessingError("The archive byte-range request timed out. Retry the analysis.", 504) from None
+                time.sleep(0.3 * (attempt + 1))
+
+    def _fetch_once(self, start, end):
         length = end - start + 1
         if self.transferred + length > self.byte_limit:
             raise ProcessingError("This window exceeded the archive read budget.")
@@ -112,20 +121,62 @@ class RangeFile(io.RawIOBase):
         return written
 
 
-def lookup(granule):
-    response = requests.get(CATALOG, params={"dataset": "NISAR", "output": "json", "granule_list": granule},
-                            timeout=(4, 8), allow_redirects=False)
-    response.raise_for_status()
+def lookup(granule, product="GCOV"):
+    params = {"dataset": "NISAR", "output": "json", "granule_list": granule}
+    for attempt in range(2):
+        try:
+            response = requests.get(CATALOG, params=params, timeout=(4, 8), allow_redirects=False)
+            response.raise_for_status()
+            break
+        except requests.RequestException as error:
+            if attempt or (error.response is not None and error.response.status_code < 429):
+                raise
     records = response.json()
     if len(records) == 1 and isinstance(records[0], list):
         records = records[0]
     record = next((r for r in records if r.get("granuleName") == granule), None)
-    if not record or record.get("processingLevel") != "GCOV":
-        raise ProcessingError("ASF did not return the requested GCOV source record.", 404)
+    if not record or record.get("processingLevel") != product:
+        raise ProcessingError(f"ASF did not return the requested {product} source record.", 404)
     url = urlparse(record.get("downloadUrl") or "")
     if url.scheme != "https" or url.netloc != ARCHIVE or url.path.rsplit("/", 1)[-1] != granule + ".h5":
         raise ProcessingError("ASF did not supply a supported HDF5 download for this record.")
     return record
+
+
+def grid_window(grid, lat, lon):
+    epsg = int(grid["projection"][()])
+    crs = CRS.from_epsg(epsg)
+    if not crs.is_projected or crs.axis_info[0].unit_conversion_factor != 1:
+        raise ProcessingError("The source grid must use projected metre coordinates.")
+    x, y = Transformer.from_crs(4326, crs, always_xy=True).transform(lon, lat)
+    xs, ys = grid["xCoordinates"], grid["yCoordinates"]
+    x0, y0 = float(xs[0]), float(ys[0])
+    dx, dy = float(grid["xCoordinateSpacing"][()]), float(grid["yCoordinateSpacing"][()])
+    if not all(map(math.isfinite, (x, y, x0, y0, dx, dy))) or dx <= 0 or dy >= 0:
+        raise ProcessingError("The source grid is invalid or unsupported.")
+    col, row = round((x - x0) / dx), round((y - y0) / dy)
+    if not 0 <= col < len(xs) or not 0 <= row < len(ys) or min(len(xs), len(ys)) < WINDOW:
+        raise ProcessingError("The selected point is outside the supported source grid.")
+    left = min(max(col - WINDOW // 2, 0), len(xs) - WINDOW)
+    top = min(max(row - WINDOW // 2, 0), len(ys) - WINDOW)
+    x_coords, y_coords = xs[left:left + WINDOW], ys[top:top + WINDOW]
+    if not (np.allclose(np.diff(x_coords), dx, rtol=0, atol=1e-5)
+            and np.allclose(np.diff(y_coords), dy, rtol=0, atol=1e-5)):
+        raise ProcessingError("The source grid spacing is not regular.")
+    return np.s_[top:top + WINDOW, left:left + WINDOW], {
+        "epsg": epsg, "spacing": [dx, dy],
+        "firstPixelCenter": [float(x_coords[0]), float(y_coords[0])],
+        "requestedPixel": [row - top, col - left],
+    }
+
+
+def record_source(record, dataset, grid, source):
+    return {
+        **grid, "granule": record["granuleName"], "acquiredAt": record.get("startTime"),
+        "endsAt": record.get("stopTime"), "asset": record["downloadUrl"], "dataset": dataset,
+        "collection": record.get("collectionName"), "processingVersion": record.get("pgeVersion"),
+        "bytesRead": source.transferred,
+    }
 
 
 def read_window(record, lat, lon, token, deadline, channel=None):
@@ -137,25 +188,7 @@ def read_window(record, lat, lon, token, deadline, channel=None):
             channel = channel or next((name for name in CHANNELS if name in grid), None)
             if channel is None or any(key not in grid for key in (channel, "mask", "projection", "xCoordinates", "yCoordinates")):
                 raise ProcessingError("The matching radar channel or its coverage mask is missing.")
-            epsg = int(grid["projection"][()])
-            crs = CRS.from_epsg(epsg)
-            if not crs.is_projected or crs.axis_info[0].unit_conversion_factor != 1:
-                raise ProcessingError("This radar grid does not use a supported projected metre coordinate system.")
-            x, y = Transformer.from_crs(4326, crs, always_xy=True).transform(lon, lat)
-            xs, ys = grid["xCoordinates"], grid["yCoordinates"]
-            x0, y0 = float(xs[0]), float(ys[0])
-            dx, dy = float(grid["xCoordinateSpacing"][()]), float(grid["yCoordinateSpacing"][()])
-            if not all(map(math.isfinite, (x, y, x0, y0, dx, dy))) or dx <= 0 or dy >= 0:
-                raise ProcessingError("The source radar grid is invalid or unsupported.")
-            col, row = round((x - x0) / dx), round((y - y0) / dy)
-            left, top = col - WINDOW // 2, row - WINDOW // 2
-            if min(left, top) < 0 or left + WINDOW > len(xs) or top + WINDOW > len(ys):
-                raise ProcessingError("The selected point is too close to, or outside, the radar grid edge.")
-            x_coords, y_coords = xs[left:left + WINDOW], ys[top:top + WINDOW]
-            if not (np.allclose(np.diff(x_coords), dx, rtol=0, atol=1e-5)
-                    and np.allclose(np.diff(y_coords), dy, rtol=0, atol=1e-5)):
-                raise ProcessingError("The radar grid spacing is not regular.")
-            bounds = np.s_[top:top + WINDOW, left:left + WINDOW]
+            bounds, geometry = grid_window(grid, lat, lon)
             power = grid[channel][bounds].astype(np.float64)
             mask = grid["mask"][bounds]
             valid = np.isfinite(power) & (power > 0) & (mask > 0) & (mask < 255)
@@ -163,13 +196,40 @@ def read_window(record, lat, lon, token, deadline, channel=None):
             valid &= power != fill
             values = np.full(power.shape, np.nan)
             values[valid] = 10 * np.log10(power[valid])
-            return values, {
-                "granule": record["granuleName"], "acquiredAt": record.get("startTime"),
-                "asset": record["downloadUrl"], "dataset": f"{GRID}/{channel}", "channel": channel,
-                "epsg": epsg, "spacing": [dx, dy],
-                "firstPixelCenter": [float(x_coords[0]), float(y_coords[0])],
-                "bytesRead": source.transferred,
-            }
+            return values, {**record_source(record, f"{GRID}/{channel}", geometry, source), "channel": channel}
+
+
+def requested_area(payload, lat, lon):
+    bounds = payload.get("bounds")
+    if bounds is None:
+        return None
+    if not isinstance(bounds, list) or len(bounds) != 4:
+        raise ProcessingError("Area must contain west, south, east and north bounds.", 400)
+    try:
+        west, south, east, north = map(float, bounds)
+    except (TypeError, ValueError):
+        raise ProcessingError("Area bounds must be decimal degrees.", 400) from None
+    if not (-180 <= west <= lon <= east <= 180 and -90 <= south <= lat <= north <= 90
+            and west < east and south < north):
+        raise ProcessingError("The sample point must be inside a valid area.", 400)
+    return [west, south, east, north]
+
+
+def area_mask(bounds, source):
+    if bounds is None:
+        return np.ones((WINDOW, WINDOW), dtype=bool)
+    west, south, east, north = bounds
+    x, y = source["firstPixelCenter"]
+    dx, dy = source["spacing"]
+    xs, ys = np.meshgrid(x + np.arange(WINDOW) * dx, y + np.arange(WINDOW) * dy)
+    lons, lats = Transformer.from_crs(source["epsg"], 4326, always_xy=True).transform(xs, ys)
+    return (lons >= west) & (lons <= east) & (lats >= south) & (lats <= north)
+
+
+def matched_grid(a, b):
+    return (a["epsg"], a["dataset"], a["spacing"]) == (b["epsg"], b["dataset"], b["spacing"]) and np.allclose(
+        a["firstPixelCenter"], b["firstPixelCenter"], rtol=0, atol=1e-5
+    )
 
 
 def image(values, low, high, change=False):
@@ -188,6 +248,12 @@ def image(values, low, high, change=False):
     png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", WINDOW, WINDOW, 8, 6, 0, 0, 0))
     png += chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
     return "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+
+
+def pixel_values(values, valid):
+    """Physical values in row-major order. None denotes a screened pixel."""
+    return [round(float(value), 5) if keep else None
+            for value, keep in zip(values.ravel(), valid.ravel())]
 
 
 def process(payload):
@@ -216,24 +282,30 @@ def process(payload):
         if tracks[0] != tracks[1] or not records[0].get("startTime") or records[0].get("startTime") == records[1].get("startTime"):
             raise ProcessingError("Select different acquisition dates on the same track, pass, frame and acquisition mode.")
     # h5py serializes HDF5 calls, including reads against file-like objects.
-    samples = [read_window(record, lat, lon, token, deadline) for record in records]
+    bounds = requested_area(payload, lat, lon)
+    channel = payload.get("channel") or None
+    if channel is not None and channel not in CHANNELS:
+        raise ProcessingError("Select an available GCOV covariance channel.", 400)
+    samples = [read_window(record, lat, lon, token, deadline, channel) for record in records]
     values, sources = zip(*samples)
-    valid = np.logical_and.reduce([np.isfinite(array) for array in values])
+    if len(sources) == 2 and not matched_grid(*sources):
+        raise ProcessingError("The observations do not share the same channel and pixel grid.")
+    inside = area_mask(bounds, sources[0])
+    valid = inside & np.logical_and.reduce([np.isfinite(array) for array in values])
     if not valid.any():
         raise ProcessingError("No radar samples passed the source mask at this location. Try another point.")
     result = {
-        "method": "earth-signal-gcov-window-v1", "latitude": lat, "longitude": lon, "windowPixels": WINDOW,
-        "sources": sources, "validPixels": int(valid.sum()), "totalPixels": WINDOW ** 2,
+        "method": "earth-signal-gcov-window-v1", "product": "GCOV",
+        "latitude": lat, "longitude": lon, "windowPixels": WINDOW,
+        "sources": sources, "validPixels": int(valid.sum()), "totalPixels": int(inside.sum()), "areaBounds": bounds,
+        "qualityRule": "Finite positive gamma-nought power and a valid subswath mask. Paired results use the intersection of valid pixels on the identical grid.",
+        "limitation": "Backscatter change alone cannot establish flooding or wetland extent. Source maturity and acquisition conditions affect interpretation.",
         "backscatterDisplayDb": [-30, 5],
         "previews": [image(np.where(valid, array, np.nan), -30, 5) for array in values],
         "medianBackscatterDb": [round(float(np.median(array[valid])), 2) for array in values],
+        "pixelValues": [pixel_values(array, valid) for array in values],
     }
     if len(values) == 2:
-        a, b = sources
-        if (a["epsg"], a["dataset"], a["spacing"]) != (b["epsg"], b["dataset"], b["spacing"]) or not np.allclose(
-            a["firstPixelCenter"], b["firstPixelCenter"], rtol=0, atol=1e-5
-        ):
-            raise ProcessingError("The observations do not share the same channel and pixel grid.")
         difference = np.where(valid, values[1] - values[0], np.nan)
         result.update(medianChangeDb=round(float(np.median(difference[valid])), 2),
                       changeDisplayDb=[-6, 6], changePreview=image(difference, -6, 6, change=True))
@@ -242,15 +314,17 @@ def process(payload):
 
 def run(payload):
     try:
+        ids = payload.get("granules") if isinstance(payload, dict) else None
+        first = ids[0] if isinstance(ids, list) and ids else None
+        if isinstance(first, str):
+            product = first.split("_")[3:4]
+            if product and product[0] in {"SME2", "GUNW", "GOFF"}:
+                from science.products import process_product
+                return 200, process_product(payload, product[0])
         return 200, process(payload)
     except ProcessingError as error:
         return error.status, {"error": str(error)}
     except requests.RequestException:
         return 502, {"error": "ASF or Earthdata could not complete the request. Try again."}
     except (OSError, ValueError, KeyError, TypeError):
-        return 422, {"error": "The radar file could not be decoded as a supported GCOV grid."}
-
-
-if __name__ == "__main__":
-    status, body = run(json.load(sys.stdin))
-    print(json.dumps({"status": status, "body": body}, allow_nan=False))
+        return 422, {"error": "The source file could not be decoded as a supported NISAR measurement grid."}

@@ -25,9 +25,12 @@ export default async function handler(req,res) {
     let size=0; const chunks=[];
     for await (const chunk of upstream.body) {size+=chunk.length;if(size>MAX_BYTES) return res.status(413).json({error:'Asset exceeds the browse limit.'});chunks.push(chunk);}
     const upstreamType=upstream.headers.get('content-type') || 'application/octet-stream';
-    const type=url.pathname.toLowerCase().endsWith('.png')?'image/png':upstreamType;
-    if (type.includes('text/html')) return res.status(502).json({error:'NASA returned an authentication page.'});
+    if (upstreamType.includes('text/html')) return res.status(502).json({error:'NASA returned an authentication page.'});
+    const bytes=Buffer.concat(chunks);
+    const png=url.pathname.toLowerCase().endsWith('.png');
+    if(png&&!bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')))return res.status(502).json({error:'NASA did not return a valid PNG preview.'});
+    const type=png?'image/png':upstreamType;
     res.setHeader('Content-Type',type);res.setHeader('X-Content-Type-Options','nosniff');
-    return res.status(200).send(Buffer.concat(chunks));
+    return res.status(200).send(bytes);
   } catch {return res.status(502).json({error:'NASA asset request could not be completed.'});}
 }

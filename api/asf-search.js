@@ -36,9 +36,19 @@ export function buildSearchParams(query = {}) {
   }
   for (const name of ['start','end']) if (query[name]) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(query[name]) || Number.isNaN(Date.parse(query[name])) || new Date(query[name]).toISOString().slice(0,10) !== query[name]) throw new Error(`${name} must be a valid YYYY-MM-DD date.`);
-    params.set(name, query[name]);
+    params.set(name, name==='end'?`${query[name]}T23:59:59.999Z`:query[name]);
   }
   if (query.start && query.end && query.start > query.end) throw new Error('Start date must precede end date.');
+  if(query.orbit){
+    const direction=String(query.orbit).toUpperCase();
+    if(!['ASCENDING','DESCENDING'].includes(direction))throw new Error('Orbit must be Ascending or Descending.');
+    params.set('flightDirection',direction);
+  }
+  if(query.track){
+    const track=String(query.track);
+    if(!/^\d{1,3}$/.test(track)||Number(track)<1||Number(track)>173)throw new Error('Track must be an integer from 1 to 173.');
+    params.set('relativeOrbit',String(Number(track)));
+  }
   if (query.lat != null || query.lon != null) {
     if (query.lat == null || query.lon == null || String(query.lat).trim()==='' || String(query.lon).trim()==='') throw new Error('Latitude and longitude are both required.');
     const lat = Number(query.lat), lon = Number(query.lon);

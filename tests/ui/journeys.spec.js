@@ -17,7 +17,7 @@ test('Local saves persist; reports and readiness are honest',async({page})=>{
 });
 test('Live discovery returns footprints and evidence',async({page})=>{
  await page.goto('/explore');await expect(page.locator('.ex-search-status')).toContainText(/drawable footprints/, {timeout:35000});
- await expect(page.locator('select').first()).toHaveValue('live');
+ await expect(page.getByLabel('Catalog source')).toHaveValue('live');
  await page.screenshot({path:'.impeccable/review/explore-desktop.png',fullPage:true});
  const response=await page.request.get('/api/asf-search?maxResults=1&processingLevel=GCOV');expect(response.ok()).toBeTruthy();const body=await response.json();expect(body.records.length).toBeGreaterThan(0);
  await page.goto('/observations?granule='+encodeURIComponent(body.records[0].granuleName));await expect(page.getByRole('button',{name:'Export source metadata'})).toBeVisible({timeout:35000});await expect(page.locator('.granule-name')).toContainText(body.records[0].granuleName);

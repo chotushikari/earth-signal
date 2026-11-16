@@ -28,7 +28,7 @@ async function gcovDevHandler(req, res) {
   if (processing) return send(429, {error: 'Another radar window is being processed. Try again shortly.'});
   processing = true;
   const env = {...process.env, PYTHONDONTWRITEBYTECODE: '1'};
-  const child = execFile(process.env.EARTH_SIGNAL_PYTHON || 'python', ['-m', 'science.gcov'],
+  const child = execFile(process.env.EARTH_SIGNAL_PYTHON || 'python', ['-m', 'science'],
     {env, timeout: 105_000, maxBuffer: 1024 * 1024, windowsHide: true}, (error, stdout) => {
       processing = false;
       if (res.destroyed) return;

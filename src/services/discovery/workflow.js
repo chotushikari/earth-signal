@@ -10,7 +10,7 @@ export function contextFromSearch(search) {
   const area = p.has('bounds') ? rectangleArea(p.get('bounds').split(',')) : null;
   const place = area || resolveLocation(p.has('lat') ? `${p.get('lat')}, ${p.get('lon')}` : 'Vembanad Lake, Kerala');
   const product=p.get('product')==='all'?'':p.get('product') ?? topicProducts[p.get('topic')] ?? 'GCOV';
-  return {place, area: area?.valid ? area : null, product, start:p.get('start') || '', end:p.get('end') || '', mode:p.get('mode') === 'snapshot' ? 'snapshot' : 'live'};
+  return {place, area: area?.valid ? area : null, product, start:p.get('start') || '', end:p.get('end') || '', orbit:p.get('orbit')||'', track:p.get('track')||'', limit:p.get('limit')||'80', mode:p.get('mode') === 'snapshot' ? 'snapshot' : 'live'};
 }
 export function contextParams(context) {
   const p = new URLSearchParams();
@@ -19,10 +19,13 @@ export function contextParams(context) {
   p.set('product',context.product||'all');
   if(context.start)p.set('start',context.start);
   if(context.end)p.set('end',context.end);
+  if(context.orbit)p.set('orbit',context.orbit);
+  if(context.track)p.set('track',context.track);
+  if(context.limit&&context.limit!=='80')p.set('limit',context.limit);
   if(context.mode === 'snapshot')p.set('mode','snapshot');
   return p;
 }
-export function searchParams(context, product = context.product, limit = 80) {
+export function searchParams(context, product = context.product, limit = context.limit || 80) {
   const p = new URLSearchParams({maxResults:String(limit)});
   if(context.area?.wkt)p.set('intersectsWith',context.area.wkt);
   else if(context.place?.valid){p.set('lat',context.place.latitude);p.set('lon',context.place.longitude);}
@@ -30,6 +33,8 @@ export function searchParams(context, product = context.product, limit = 80) {
   if(product)p.set('processingLevel',product);
   if(context.start)p.set('start',context.start);
   if(context.end)p.set('end',context.end);
+  if(context.orbit)p.set('orbit',context.orbit);
+  if(context.track)p.set('track',context.track);
   return p;
 }
 export function makeDataset(body, context, id = crypto.randomUUID()) {
@@ -74,11 +79,34 @@ export function screenPair(a,b) {
   return {status:reasons.length?'limited':'candidate',candidate:!reasons.length,reasons:reasons.length?reasons:['Metadata matches. Common valid pixels, calibration, grid alignment and QA remain unverified.']};
 }
 export function candidatePairs(records) {
-  const pairs=[];for(let i=0;i<records.length;i++)for(let j=i+1;j<records.length;j++)if(screenPair(records[i],records[j]).candidate)pairs.push([recordId(records[i]),recordId(records[j])]);return pairs;
+  const groups=new Map();
+  const pairs=[];
+  for(const record of records){
+    const {startTime}=record;
+    const fields=Object.values(metadata(record));
+    if(!startTime||Number.isNaN(Date.parse(startTime))||fields.some(value=>!value))continue;
+    if(normalizeCatalog([record]).features.length!==1)continue;
+    const key=JSON.stringify(fields);
+    const group=groups.get(key)||[];
+    const id=recordId(record);
+    for(const previous of group){
+      if(recordId(previous)!==id&&previous.startTime.slice(0,10)!==startTime.slice(0,10)){
+        pairs.push([recordId(previous),id]);
+      }
+    }
+    group.push(record);
+    groups.set(key,group);
+  }
+  return pairs;
 }
 export function browseUrl(record) {
+  return browseCandidates(record)[0] || null;
+}
+export function browseCandidates(record) {
   const urls=Array.isArray(record?.browse)?record.browse:[];
-  return urls.find(u=>/^https:\/\/nisar\.asf\.earthdatacloud\.nasa\.gov\//.test(u)&&/_LATLON\.png$/i.test(u))||null;
+  const candidates=[...urls,record?.thumbnailUrl].filter(u=>typeof u==='string'&&/^https:\/\/nisar\.asf\.earthdatacloud\.nasa\.gov\/[^?#]+\.png$/i.test(u));
+  const geographic=candidates.filter(u=>/_LATLON\.png$/i.test(u));
+  return [...new Set([...geographic,...candidates])];
 }
 export function evidenceManifest(dataset,selected=[]) {
   const records=selected.length?dataset.records.filter(r=>selected.includes(recordId(r))):dataset.records;
