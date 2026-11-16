@@ -33,6 +33,17 @@ The browse image is a separately supplied preview. Analysis reads calibrated or 
 
 With the local server running and an Earthdata credential configured, `node tests/gcov-live.mjs` checks the reference backscatter pair. Run `node tests/research-live.mjs http://127.0.0.1:5173 SME2` for the published soil moisture pair, or substitute `GUNW` or `GOFF` for the corresponding source assessment.
 
-A larger-area research service needs a durable job queue, a worker with an execution budget suited to multiple windows and dates, versioned storage for output rasters, and independent validation of derived science methods. Keep those requirements distinct from the window measurements currently supported.
+## Architecture for full-area processing
+
+The deployed worker runs synchronous window requests. Complete area coverage needs an asynchronous service with the following responsibilities.
+
+| Component | Responsibility |
+| --- | --- |
+| Job API | Validate and freeze the AOI, UTC interval, product, selected granules, algorithm parameters and method version. Return a job ID and the input manifest immediately. |
+| Durable queue and worker | Record queued, running, succeeded and failed states. Split the AOI into projected tiles, retry transient archive failures by tile, and retain checkpoints so a worker restart can resume. |
+| Raster and report storage | Write versioned measurement and quality rasters together with the source IDs, coverage, grid, masks and processing version. Generate the report from the same persisted outputs. |
+| Validation | Test against reference sites with known observations or ground truth. Publish measured coverage, calibration and uncertainty limitations. Withhold area totals when source coverage is incomplete. |
+
+For example, a wetland-area report needs a validated water classification, comparable observations, valid-data intersection, and area computed on an appropriate projected grid. Median radar response in a sample cannot answer how many hectares flooded. Two research outputs should stay distinct: a map of the measured signal and a validated estimate of the environmental change.
 
 See the ASF product guides for [GCOV](https://nisar-docs.asf.alaska.edu/gcov/), [SME2](https://nisar-docs.asf.alaska.edu/sme2/), [GUNW](https://nisar-docs.asf.alaska.edu/gunw/) and [GOFF](https://nisar-docs.asf.alaska.edu/goff/).
