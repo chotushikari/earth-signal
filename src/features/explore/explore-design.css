@@ -42,3 +42,5 @@
 .explore-design{grid-template-rows:minmax(0,1fr)}.explore-search,.explore-inspector{min-height:0}.explore-search{overflow:auto}.ex-timeline-dates{font-size:11px}.ex-timeline>div:first-child>span{font-size:11px}.ex-inspector-action>small{font-size:11px}
 @media(max-width:900px){.explore-design{grid-template-rows:auto}.explore-search{overflow:visible}}
 @media(max-width:400px){.ex-form-fields{grid-template-columns:minmax(0,1fr)}.ex-field-label,.ex-location,.ex-lenses,.ex-dates,.ex-area,.ex-advanced{grid-column:1;grid-row:auto}.ex-dates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.ex-lenses button{font-size:12px;white-space:nowrap}}
+.ex-catalog-filters label{display:grid;grid-template-columns:minmax(68px,1fr) minmax(90px,1.3fr);align-items:center}
+.ex-catalog-filters :is(input[type="number"],select){width:100%;min-width:0;height:36px;padding:0 var(--space-xs);border:1px solid var(--es-field-edge);border-radius:var(--es-radius);background:var(--es-surface);color:var(--es-ink);font:inherit}
